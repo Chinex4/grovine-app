@@ -24,15 +24,13 @@ export const LoginScreen = ({ navigation }: any) => {
         onSubmit: async (values) => {
             setLoading(true);
             try {
-                const data = await authService.signIn(values.email);
-                if (data.code === 'VERIFICATION_EMAIL_SENT') {
-                    Toast.show({
-                        type: 'success',
-                        text1: 'Verification Sent',
-                        text2: 'Please check your email for the code'
-                    });
-                    navigation.navigate('VerifyOtp', { email: values.email, type: 'login' });
-                }
+                await authService.signIn(values.email);
+                Toast.show({
+                    type: 'success',
+                    text1: 'Verification Sent',
+                    text2: 'Please check your email for the code'
+                });
+                navigation.navigate('VerifyOtp', { email: values.email, type: 'login' });
             } catch (error: any) {
                 console.log('LoginScreen Error:', error);
                 Toast.show({

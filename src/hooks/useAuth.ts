@@ -4,6 +4,7 @@ import { useDispatch } from 'react-redux';
 import { setCredentials } from '../store/slices/authSlice';
 import * as SecureStore from 'expo-secure-store';
 import { jwtDecode } from 'jwt-decode';
+import { setAccessToken } from '../utils/api';
 
 export const useAuth = () => {
     const dispatch = useDispatch();
@@ -16,13 +17,15 @@ export const useAuth = () => {
         mutationFn: ({ email, otp, type }: { email: string; otp: string; type: 'login' | 'signup' }) =>
             authService.verifyOtp(email, otp, type),
         onSuccess: async (data) => {
-            if (data.code === 'AUTH_CREDENTIALS') {
-                const { access_token, refresh_token, user } = data.data;
+            const accessToken = data?.data?.access_token;
+            if (accessToken) {
+                const refreshToken = data?.data?.refresh_token || '';
+                const user = data?.data?.user;
 
                 // Decode JWT to get user info if not provided in response data
                 let userData: any = user || {};
                 try {
-                    const decoded: any = jwtDecode(access_token);
+                    const decoded: any = jwtDecode(accessToken);
                     userData = {
                         ...userData,
                         id: decoded.sub,
@@ -34,14 +37,19 @@ export const useAuth = () => {
                 }
 
                 // Save tokens securely
-                await SecureStore.setItemAsync('access_token', access_token);
-                await SecureStore.setItemAsync('refresh_token', refresh_token);
+                await SecureStore.setItemAsync('access_token', accessToken);
+                if (refreshToken) {
+                    await SecureStore.setItemAsync('refresh_token', refreshToken);
+                } else {
+                    await SecureStore.deleteItemAsync('refresh_token');
+                }
+                setAccessToken(accessToken);
 
                 // Update Redux state
                 dispatch(setCredentials({
                     user: userData as any,
-                    accessToken: access_token,
-                    refreshToken: refresh_token,
+                    accessToken,
+                    refreshToken,
                 }));
             }
         },

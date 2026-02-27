@@ -5,28 +5,38 @@ export interface Chef {
     name: string;
     niches: string[];
     profile_picture: {
-        public_id: string;
+        public_id?: string;
         url: string;
     } | null;
     rating: number;
     likes: number;
     dislikes: number;
-    is_verified: boolean;
-    is_banned: boolean;
-    user_id: string;
-    created_at: string;
-    updated_at: string;
+    is_verified?: boolean;
+    is_banned?: boolean;
+    user_id?: string;
+    username?: string;
+    [key: string]: any;
+}
+
+export interface ChefNiche {
+    id: string;
+    name: string;
+    description?: string;
+    [key: string]: any;
 }
 
 export interface RegisterChefParams {
     name: string;
-    niches: string[];
+    niches?: string[];
+    niche_id?: string;
 }
 
 export interface UpdateChefParams {
     name?: string;
-    niches?: string[];
-    profile_picture?: any; // multipart/form-data
+    username?: string;
+    phone?: string;
+    email?: string;
+    profile_picture?: any;
 }
 
 export interface ListChefsParams {
@@ -35,99 +45,145 @@ export interface ListChefsParams {
 }
 
 export interface ListChefsResponse {
-    code: string;
+    code?: string;
     data: {
         data: Chef[];
         meta: {
-            page: number;
-            per_page: number;
-            total: number;
+            page?: number;
+            per_page?: number;
+            total?: number;
+            [key: string]: any;
         };
     };
 }
 
+const extractArray = <T = any>(payload: any): T[] => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload?.data?.data)) return payload.data.data;
+    return [];
+};
+
+const normalizeChef = (payload: any): Chef => {
+    const profilePicture = payload?.profile_picture || payload?.avatar || null;
+    const niches = Array.isArray(payload?.niches)
+        ? payload.niches.map((niche: any) => (typeof niche === 'string' ? niche : niche?.name)).filter(Boolean)
+        : [];
+
+    return {
+        ...payload,
+        id: String(payload?.id ?? payload?.chef_id ?? payload?.user_id ?? ''),
+        name: payload?.name ?? payload?.chef_name ?? payload?.full_name ?? '',
+        niches,
+        profile_picture: profilePicture
+            ? {
+                public_id: profilePicture?.public_id,
+                url: profilePicture?.url ?? '',
+            }
+            : null,
+        rating: Number(payload?.rating ?? 0),
+        likes: Number(payload?.likes ?? payload?.likes_count ?? 0),
+        dislikes: Number(payload?.dislikes ?? payload?.dislikes_count ?? 0),
+        username: payload?.username,
+        user_id: payload?.user_id,
+    };
+};
+
 export const chefService = {
-    registerChef: async (params: RegisterChefParams): Promise<{ code: string; data: Chef }> => {
+    listNiches: async (): Promise<{ data: ChefNiche[] }> => {
         try {
-            const response = await api.post('/chefs', params);
-            return response.data;
+            const response = await api.get('/niches');
+            const niches = extractArray(response.data).map((niche: any) => ({
+                ...niche,
+                id: String(niche?.id ?? ''),
+                name: String(niche?.name ?? ''),
+            }));
+            return { data: niches };
+        } catch (error: any) {
+            console.error('List Niches Error:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    registerChef: async (params: RegisterChefParams): Promise<{ code?: string; data: Chef }> => {
+        try {
+            const chefNicheId = params.niche_id || params.niches?.[0];
+            const response = await api.post('/chef/become', {
+                chef_name: params.name,
+                chef_niche_id: chefNicheId,
+            });
+            return {
+                code: response.data?.code,
+                data: normalizeChef(response.data?.data || response.data),
+            };
         } catch (error: any) {
             console.error('Register Chef Error:', error.response?.data || error.message);
             throw error;
         }
     },
-    listChefs: async (params?: ListChefsParams): Promise<ListChefsResponse> => {
-        try {
-            const response = await api.get('/chefs', { params });
-            return response.data;
-        } catch (error: any) {
-            console.error('List Chefs Error:', error.response?.data || error.message);
-            throw error;
-        }
+
+    listChefs: async (_params?: ListChefsParams): Promise<ListChefsResponse> => {
+        return {
+            code: 'NOT_IMPLEMENTED',
+            data: { data: [], meta: {} },
+        };
     },
-    getOwnProfile: async (): Promise<{ code: string; data: Chef }> => {
+
+    getOwnProfile: async (): Promise<{ code?: string; data: Chef }> => {
         try {
-            const response = await api.get('/chefs/profile');
-            return response.data;
+            const response = await api.get('/user/me');
+            const payload = response.data?.data || response.data || {};
+            return {
+                code: response.data?.code,
+                data: normalizeChef(payload?.chef || payload),
+            };
         } catch (error: any) {
             console.error('Get Own Chef Profile Error:', error.response?.data || error.message);
             throw error;
         }
     },
-    updateProfile: async (params: UpdateChefParams): Promise<{ code: string; data: Chef }> => {
+
+    updateProfile: async (params: UpdateChefParams): Promise<{ code?: string; data: Chef }> => {
         try {
-            const formData = new FormData();
-            if (params.name) formData.append('name', params.name);
-            if (params.niches) {
-                params.niches.forEach(niche => formData.append('niches[]', niche));
-            }
             if (params.profile_picture) {
-                formData.append('profile_picture', params.profile_picture);
+                const pictureForm = new FormData();
+                pictureForm.append('profile_picture', params.profile_picture);
+                await api.post('/user/profile-picture', pictureForm, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                });
             }
 
-            const response = await api.patch('/chefs/profile', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
+            const response = await api.patch('/user/me', {
+                name: params.name,
+                username: params.username,
+                phone: params.phone,
+                email: params.email,
             });
-            return response.data;
+
+            return {
+                code: response.data?.code,
+                data: normalizeChef(response.data?.data || response.data),
+            };
         } catch (error: any) {
             console.error('Update Chef Profile Error:', error.response?.data || error.message);
             throw error;
         }
     },
-    getChefById: async (id: string): Promise<{ code: string; data: Chef }> => {
+
+    getChefById: async (username: string): Promise<{ code?: string; data: Chef }> => {
         try {
-            const response = await api.get(`/chefs/${id}`);
-            return response.data;
+            const response = await api.get(`/chefs/${username}`);
+            return {
+                code: response.data?.code,
+                data: normalizeChef(response.data?.data || response.data),
+            };
         } catch (error: any) {
-            console.error(`Get Chef (${id}) Error:`, error.response?.data || error.message);
+            console.error(`Get Chef (${username}) Error:`, error.response?.data || error.message);
             throw error;
         }
     },
-    likeChef: async (id: string): Promise<{ code: string }> => {
-        try {
-            const response = await api.put(`/chefs/${id}/like`);
-            return response.data;
-        } catch (error: any) {
-            console.error(`Like Chef (${id}) Error:`, error.response?.data || error.message);
-            throw error;
-        }
-    },
-    dislikeChef: async (id: string): Promise<{ code: string }> => {
-        try {
-            const response = await api.put(`/chefs/${id}/dislike`);
-            return response.data;
-        } catch (error: any) {
-            console.error(`Dislike Chef (${id}) Error:`, error.response?.data || error.message);
-            throw error;
-        }
-    },
-    rateChef: async (id: string, rating: number): Promise<{ code: string }> => {
-        try {
-            const response = await api.put(`/chefs/${id}/rate`, { rating });
-            return response.data;
-        } catch (error: any) {
-            console.error(`Rate Chef (${id}) Error:`, error.response?.data || error.message);
-            throw error;
-        }
-    },
+
+    likeChef: async (_id: string): Promise<{ code: string }> => ({ code: 'NOT_SUPPORTED' }),
+    dislikeChef: async (_id: string): Promise<{ code: string }> => ({ code: 'NOT_SUPPORTED' }),
+    rateChef: async (_id: string, _rating: number): Promise<{ code: string }> => ({ code: 'NOT_SUPPORTED' }),
 };

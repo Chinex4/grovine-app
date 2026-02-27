@@ -142,7 +142,7 @@ export const CheckoutScreen = ({ navigation }: any) => {
                                             <View className="flex-row items-center justify-between">
                                                 <Text className="text-[15px] font-satoshi font-bold text-[#424242]">{item.food?.name || 'Food Item'}</Text>
                                                 <TouchableOpacity
-                                                    onPress={() => updateCartMutation.mutate({ id: item.food_id, quantity: 0 })}
+                                                    onPress={() => updateCartMutation.mutate({ id: item.id, quantity: 0 })}
                                                     className="bg-red-50 p-1 rounded-md ml-2"
                                                 >
                                                     <Ionicons name="trash-outline" size={14} color="#F44336" />
@@ -161,14 +161,14 @@ export const CheckoutScreen = ({ navigation }: any) => {
                                                 <View className="flex-row items-center bg-gray-100 rounded-lg px-2 py-1">
                                                     <TouchableOpacity
                                                         disabled={updateCartMutation.isPending}
-                                                        onPress={() => updateCartMutation.mutate({ id: item.food_id, quantity: Math.max(0, item.quantity - 1) })}
+                                                        onPress={() => updateCartMutation.mutate({ id: item.id, quantity: Math.max(0, item.quantity - 1) })}
                                                     >
                                                         <Ionicons name="remove" size={16} color="#424242" />
                                                     </TouchableOpacity>
                                                     <Text className="mx-3 font-satoshi font-bold text-[14px]">{item.quantity}</Text>
                                                     <TouchableOpacity
                                                         disabled={updateCartMutation.isPending}
-                                                        onPress={() => updateCartMutation.mutate({ id: item.food_id, quantity: item.quantity + 1 })}
+                                                        onPress={() => updateCartMutation.mutate({ id: item.id, quantity: item.quantity + 1 })}
                                                     >
                                                         <Ionicons name="add" size={16} color="#424242" />
                                                     </TouchableOpacity>

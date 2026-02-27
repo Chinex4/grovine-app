@@ -3,7 +3,9 @@ import api from './api';
 export interface RecipeIngredient {
     id: string;
     quantity: string;
-    name?: string; // Optional if joined with food categories/items
+    name?: string;
+    product_id?: string;
+    item_text?: string;
 }
 
 export interface RecipeInstruction {
@@ -23,44 +25,144 @@ export interface Recipe {
     likes_count: number;
     dislikes_count: number;
     media: {
-        video_url: string;
-        cover_image_url: string;
+        video_url?: string;
+        cover_image_url?: string;
     };
     ingredients: RecipeIngredient[];
     instructions: RecipeInstruction[];
-    created_at: string;
-    updated_at: string;
+    created_at?: string;
+    updated_at?: string;
+    [key: string]: any;
 }
 
 export interface ListRecipesParams {
     page?: number;
     per_page?: number;
+    q?: string;
+    status?: string;
 }
 
 export interface ListRecipesResponse {
     data: Recipe[];
     meta: {
-        page: number;
-        per_page: number;
-        total: number;
+        page?: number;
+        per_page?: number;
+        total?: number;
+        [key: string]: any;
     };
 }
 
+const extractArray = <T = any>(payload: any): T[] => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload?.data?.data)) return payload.data.data;
+    return [];
+};
+
+const extractMeta = (payload: any) => payload?.meta || payload?.data?.meta || {};
+
+const normalizeInstructions = (instructions: any): RecipeInstruction[] => {
+    if (Array.isArray(instructions)) {
+        return instructions.map((instruction: any, index) => ({
+            title: instruction?.title || `Step ${index + 1}`,
+            content: instruction?.content || instruction?.text || '',
+        }));
+    }
+
+    if (typeof instructions === 'string' && instructions.trim()) {
+        return instructions
+            .split('\n')
+            .filter(Boolean)
+            .map((line: string, index: number) => ({
+                title: `Step ${index + 1}`,
+                content: line,
+            }));
+    }
+
+    return [];
+};
+
+const normalizeIngredients = (ingredients: any): RecipeIngredient[] => {
+    if (!Array.isArray(ingredients)) return [];
+    return ingredients.map((ingredient: any) => ({
+        id: String(ingredient?.id ?? ingredient?.product_id ?? ingredient?.item_text ?? ''),
+        quantity: String(ingredient?.quantity ?? ingredient?.cart_quantity ?? ''),
+        name: ingredient?.name,
+        product_id: ingredient?.product_id,
+        item_text: ingredient?.item_text,
+    }));
+};
+
+const normalizeRecipe = (recipe: any): Recipe => {
+    const media = recipe?.media || {};
+    const chef = recipe?.chef || recipe?.chef_profile || {};
+
+    return {
+        ...recipe,
+        id: String(recipe?.id ?? ''),
+        title: recipe?.title ?? '',
+        description: recipe?.description ?? recipe?.short_description ?? '',
+        chef_id: String(recipe?.chef_id ?? chef?.id ?? ''),
+        chef_name: recipe?.chef_name ?? chef?.chef_name ?? chef?.name,
+        chef_avatar: recipe?.chef_avatar ?? chef?.profile_picture?.url,
+        price: recipe?.price ?? recipe?.estimated_cost ?? 0,
+        rating: Number(recipe?.rating ?? 0),
+        likes_count: Number(recipe?.likes_count ?? 0),
+        dislikes_count: Number(recipe?.dislikes_count ?? 0),
+        media: {
+            video_url: media?.video_url ?? media?.video?.url,
+            cover_image_url: media?.cover_image_url ?? media?.cover_image?.url,
+        },
+        ingredients: normalizeIngredients(recipe?.ingredients),
+        instructions: normalizeInstructions(recipe?.instructions),
+    };
+};
+
 export const recipeService = {
-    listRecipes: async (params?: ListRecipesParams): Promise<ListRecipesResponse> => {
+    listRecipes: async (params: ListRecipesParams = {}): Promise<ListRecipesResponse> => {
         try {
-            const response = await api.get('/foods/recipes', { params });
-            return response.data;
+            const response = await api.get('/recipes', { params });
+            return {
+                data: extractArray(response.data).map(normalizeRecipe),
+                meta: extractMeta(response.data),
+            };
         } catch (error: any) {
             console.error('List Recipes Error:', error.response?.data || error.message);
             throw error;
         }
     },
 
+    listRecommendedRecipes: async (): Promise<ListRecipesResponse> => {
+        try {
+            const response = await api.get('/recipes/recommended');
+            return {
+                data: extractArray(response.data).map(normalizeRecipe),
+                meta: extractMeta(response.data),
+            };
+        } catch (error: any) {
+            console.error('List Recommended Recipes Error:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    listQuickRecipes: async (): Promise<ListRecipesResponse> => {
+        try {
+            const response = await api.get('/recipes/quick');
+            return {
+                data: extractArray(response.data).map(normalizeRecipe),
+                meta: extractMeta(response.data),
+            };
+        } catch (error: any) {
+            console.error('List Quick Recipes Error:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+
     getRecipeById: async (id: string): Promise<{ data: Recipe }> => {
         try {
-            const response = await api.get(`/foods/recipes/${id}`);
-            return response.data;
+            const response = await api.get(`/recipes/${id}`);
+            const payload = response.data?.data || response.data;
+            return { data: normalizeRecipe(payload) };
         } catch (error: any) {
             console.error(`Get Recipe (${id}) Error:`, error.response?.data || error.message);
             throw error;
@@ -69,10 +171,10 @@ export const recipeService = {
 
     createRecipe: async (formData: FormData): Promise<{ data: Recipe }> => {
         try {
-            const response = await api.post('/foods/recipes', formData, {
+            const response = await api.post('/chef/recipes', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
-            return response.data;
+            return { data: normalizeRecipe(response.data?.data || response.data) };
         } catch (error: any) {
             console.error('Create Recipe Error:', error.response?.data || error.message);
             throw error;
@@ -81,49 +183,107 @@ export const recipeService = {
 
     updateRecipe: async (id: string, formData: FormData): Promise<{ data: Recipe }> => {
         try {
-            const response = await api.patch(`/foods/recipes/${id}`, formData, {
+            const response = await api.patch(`/chef/recipes/${id}`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
-            return response.data;
+            return { data: normalizeRecipe(response.data?.data || response.data) };
         } catch (error: any) {
             console.error(`Update Recipe (${id}) Error:`, error.response?.data || error.message);
             throw error;
         }
     },
 
+    submitRecipe: async (id: string): Promise<{ code?: string; message?: string }> => {
+        try {
+            const response = await api.post(`/chef/recipes/${id}/submit`);
+            return response.data;
+        } catch (error: any) {
+            console.error(`Submit Recipe (${id}) Error:`, error.response?.data || error.message);
+            throw error;
+        }
+    },
+
     deleteRecipe: async (id: string): Promise<void> => {
         try {
-            await api.delete(`/foods/recipes/${id}`);
+            await api.delete(`/chef/recipes/${id}`);
         } catch (error: any) {
             console.error(`Delete Recipe (${id}) Error:`, error.response?.data || error.message);
             throw error;
         }
     },
 
-    likeRecipe: async (id: string): Promise<void> => {
+    listMyRecipes: async (status?: string): Promise<ListRecipesResponse> => {
         try {
-            await api.put(`/foods/recipes/${id}/like`);
+            const response = await api.get('/chef/recipes', { params: { status } });
+            return {
+                data: extractArray(response.data).map(normalizeRecipe),
+                meta: extractMeta(response.data),
+            };
         } catch (error: any) {
-            console.error(`Like Recipe (${id}) Error:`, error.response?.data || error.message);
+            console.error('List My Recipes Error:', error.response?.data || error.message);
             throw error;
         }
+    },
+
+    listBookmarkedRecipes: async (): Promise<ListRecipesResponse> => {
+        try {
+            const response = await api.get('/recipes/bookmarks');
+            return {
+                data: extractArray(response.data).map(normalizeRecipe),
+                meta: extractMeta(response.data),
+            };
+        } catch (error: any) {
+            console.error('List Bookmarked Recipes Error:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    bookmarkRecipe: async (id: string): Promise<{ code?: string; message?: string }> => {
+        try {
+            const response = await api.post(`/recipes/${id}/bookmark`);
+            return response.data;
+        } catch (error: any) {
+            console.error(`Bookmark Recipe (${id}) Error:`, error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    unbookmarkRecipe: async (id: string): Promise<{ code?: string; message?: string }> => {
+        try {
+            const response = await api.delete(`/recipes/${id}/bookmark`);
+            return response.data;
+        } catch (error: any) {
+            console.error(`Unbookmark Recipe (${id}) Error:`, error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    addIngredientsToCart: async (
+        recipeId: string,
+        ingredientIds: string[],
+        quantityMultiplier = 1
+    ): Promise<{ code?: string; message?: string }> => {
+        try {
+            const response = await api.post(`/recipes/${recipeId}/ingredients/add-to-cart`, {
+                ingredient_ids: ingredientIds,
+                quantity_multiplier: quantityMultiplier,
+            });
+            return response.data;
+        } catch (error: any) {
+            console.error(`Add Recipe Ingredients To Cart (${recipeId}) Error:`, error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    likeRecipe: async (id: string): Promise<void> => {
+        await recipeService.bookmarkRecipe(id);
     },
 
     dislikeRecipe: async (id: string): Promise<void> => {
-        try {
-            await api.put(`/foods/recipes/${id}/dislike`);
-        } catch (error: any) {
-            console.error(`Dislike Recipe (${id}) Error:`, error.response?.data || error.message);
-            throw error;
-        }
+        await recipeService.unbookmarkRecipe(id);
     },
 
-    rateRecipe: async (id: string, rating: number): Promise<void> => {
-        try {
-            await api.put(`/foods/recipes/${id}/rate`, { rating });
-        } catch (error: any) {
-            console.error(`Rate Recipe (${id}) Error:`, error.response?.data || error.message);
-            throw error;
-        }
+    rateRecipe: async (_id: string, _rating: number): Promise<void> => {
+        return;
     },
 };

@@ -1,17 +1,28 @@
 import api from './api';
 
+export interface OptionItem {
+    id: string;
+    name: string;
+    [key: string]: any;
+}
+
 export interface FoodItem {
     id: string;
     name: string;
-    description: string;
+    description?: string;
     price: number;
     media: {
-        public_id: string;
+        public_id?: string;
         url: string;
     };
-    is_available: boolean;
-    created_at: string;
-    updated_at: string;
+    image?: {
+        public_id?: string;
+        url: string;
+    };
+    stock?: number;
+    is_recommended?: boolean;
+    is_rush_hour_offer?: boolean;
+    [key: string]: any;
 }
 
 export interface FetchFoodsParams {
@@ -24,97 +35,183 @@ export interface FetchFoodsParams {
 export interface FetchFoodsResponse {
     data: FoodItem[];
     meta: {
-        page: number;
-        per_page: number;
-        total: number;
+        page?: number;
+        per_page?: number;
+        total?: number;
+        [key: string]: any;
     };
 }
 
+const extractArray = <T = any>(payload: any): T[] => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload?.data?.data)) return payload.data.data;
+    return [];
+};
+
+const extractMeta = (payload: any) => payload?.meta || payload?.data?.meta || {};
+
+const toOption = (item: any): OptionItem => {
+    if (typeof item === 'string') {
+        return { id: item, name: item };
+    }
+    return {
+        id: String(item?.id ?? item?.name ?? item?.value ?? ''),
+        name: String(item?.name ?? item?.title ?? item?.label ?? item?.id ?? ''),
+        ...item,
+    };
+};
+
+const normalizeProduct = (item: any): FoodItem => {
+    const media = item?.media || item?.image || {};
+    return {
+        ...item,
+        id: String(item?.id ?? ''),
+        name: item?.name ?? '',
+        price: Number(item?.price ?? 0),
+        media: {
+            public_id: media?.public_id,
+            url: media?.url ?? '',
+        },
+        image: item?.image || media,
+    };
+};
+
 export const foodService = {
-    fetchFoods: async (params: FetchFoodsParams): Promise<FetchFoodsResponse> => {
+    fetchFoods: async (params: FetchFoodsParams = {}): Promise<FetchFoodsResponse> => {
         try {
-            console.log('Fetching foods with params:', params);
-            const response = await api.get('/foods', { params });
-            console.log('Fetch foods response count:', response.data.data.length);
-            return response.data;
+            const response = await api.get('/products', {
+                params: {
+                    page: params.page,
+                    per_page: params.per_page,
+                    category: params.categories,
+                    q: params.name,
+                },
+            });
+            return {
+                data: extractArray(response.data).map(normalizeProduct),
+                meta: extractMeta(response.data),
+            };
         } catch (error: any) {
-            console.error('Fetch Foods API Error:', error.response?.data || error.message);
+            console.error('Fetch Products API Error:', error.response?.data || error.message);
             throw error;
         }
     },
-    fetchFoodItems: async (params: FetchFoodsParams): Promise<FetchFoodsResponse> => {
-        try {
-            const response = await api.get('/foods/items', { params });
-            return response.data;
-        } catch (error: any) {
-            console.error('Fetch Food Items Error:', error.response?.data || error.message);
-            throw error;
-        }
+
+    fetchFoodItems: async (params: FetchFoodsParams = {}): Promise<FetchFoodsResponse> => {
+        return foodService.fetchFoods(params);
     },
+
     fetchFoodById: async (id: string): Promise<{ data: FoodItem }> => {
         try {
-            const response = await api.get(`/foods/items/${id}`);
-            return response.data;
+            const response = await api.get(`/products/${id}`);
+            const payload = response.data?.data || response.data;
+            return { data: normalizeProduct(payload) };
         } catch (error: any) {
-            console.error(`Fetch Food (${id}) Error:`, error.response?.data || error.message);
+            console.error(`Fetch Product (${id}) Error:`, error.response?.data || error.message);
             throw error;
         }
     },
-    createFoodItem: async (formData: FormData): Promise<{ data: FoodItem }> => {
-        try {
-            const response = await api.post('/foods/items', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
-            return response.data;
-        } catch (error: any) {
-            console.error('Create Food Item Error:', error.response?.data || error.message);
-            throw error;
-        }
-    },
-    updateFoodItem: async (id: string, formData: FormData): Promise<{ data: FoodItem }> => {
-        try {
-            const response = await api.patch(`/foods/items/${id}`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
-            return response.data;
-        } catch (error: any) {
-            console.error(`Update Food Item (${id}) Error:`, error.response?.data || error.message);
-            throw error;
-        }
-    },
-    deleteFoodItem: async (id: string): Promise<void> => {
-        try {
-            await api.delete(`/foods/items/${id}`);
-        } catch (error: any) {
-            console.error(`Delete Food Item (${id}) Error:`, error.response?.data || error.message);
-            throw error;
-        }
-    },
+
     fetchCategories: async (): Promise<{ data: string[] }> => {
         try {
-            const response = await api.get('/foods/categories');
-            return response.data;
+            const response = await api.get('/categories');
+            const categories = extractArray(response.data).map(toOption);
+            return { data: categories.map((category) => category.name) };
         } catch (error: any) {
             console.error('Fetch Categories Error:', error.response?.data || error.message);
             throw error;
         }
     },
-    fetchRegions: async (): Promise<{ data: string[] }> => {
+
+    fetchCategoryOptions: async (): Promise<{ data: OptionItem[] }> => {
+        const categories = await foodService.fetchRawCategories();
+        return { data: categories.map(toOption) };
+    },
+
+    fetchFavoriteFoods: async (): Promise<{ data: string[] }> => {
         try {
-            const response = await api.get('/foods/cuisine/regions');
-            return response.data;
+            const response = await api.get('/preferences/favorite-foods');
+            const foods = extractArray(response.data).map(toOption);
+            return { data: foods.map((food) => food.name) };
         } catch (error: any) {
-            console.error('Fetch Regions Error:', error.response?.data || error.message);
+            console.error('Fetch Favorite Foods Error:', error.response?.data || error.message);
             throw error;
         }
     },
-    searchFoods: async (query: string): Promise<FetchFoodsResponse> => {
+
+    fetchFavoriteFoodOptions: async (): Promise<{ data: OptionItem[] }> => {
         try {
-            const response = await api.get('/foods/search', { params: { q: query } });
-            return response.data;
+            const response = await api.get('/preferences/favorite-foods');
+            return { data: extractArray(response.data).map(toOption) };
         } catch (error: any) {
-            console.error('Search Foods Error:', error.response?.data || error.message);
+            console.error('Fetch Favorite Food Options Error:', error.response?.data || error.message);
             throw error;
         }
+    },
+
+    fetchRegions: async (): Promise<{ data: string[] }> => {
+        try {
+            const response = await api.get('/preferences/cuisine-regions');
+            const regions = extractArray(response.data).map(toOption);
+            return { data: regions.map((region) => region.name) };
+        } catch (error: any) {
+            console.error('Fetch Cuisine Regions Error:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    fetchCuisineRegionOptions: async (): Promise<{ data: OptionItem[] }> => {
+        try {
+            const response = await api.get('/preferences/cuisine-regions');
+            return { data: extractArray(response.data).map(toOption) };
+        } catch (error: any) {
+            console.error('Fetch Cuisine Region Options Error:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    searchFoods: async (query: string): Promise<FetchFoodsResponse> => {
+        try {
+            const response = await api.get('/products/search', { params: { q: query } });
+            return {
+                data: extractArray(response.data).map(normalizeProduct),
+                meta: extractMeta(response.data),
+            };
+        } catch (error: any) {
+            console.error('Search Products Error:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    fetchRecommendedProducts: async (): Promise<FetchFoodsResponse> => {
+        try {
+            const response = await api.get('/products/recommended');
+            return {
+                data: extractArray(response.data).map(normalizeProduct),
+                meta: extractMeta(response.data),
+            };
+        } catch (error: any) {
+            console.error('Fetch Recommended Products Error:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    fetchRushHourOffers: async (): Promise<FetchFoodsResponse> => {
+        try {
+            const response = await api.get('/products/rush-hour-offers');
+            return {
+                data: extractArray(response.data).map(normalizeProduct),
+                meta: extractMeta(response.data),
+            };
+        } catch (error: any) {
+            console.error('Fetch Rush Hour Offers Error:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    fetchRawCategories: async (): Promise<any[]> => {
+        const response = await api.get('/categories');
+        return extractArray(response.data);
     },
 };

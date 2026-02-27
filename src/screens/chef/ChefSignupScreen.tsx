@@ -3,17 +3,16 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator 
 import { ScreenWrapper } from '../../components/ScreenWrapper';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { foodService } from '../../utils/foodService';
-import { chefService } from '../../utils/chefService';
+import { chefService, ChefNiche } from '../../utils/chefService';
 import Toast from 'react-native-toast-message';
 
 export const ChefSignupScreen = ({ navigation }: any) => {
     const [chefName, setChefName] = useState('');
     const [selectedNiches, setSelectedNiches] = useState<string[]>([]);
 
-    const { data: categoriesResponse, isLoading } = useQuery({
-        queryKey: ['categories'],
-        queryFn: foodService.fetchCategories,
+    const { data: nichesResponse, isLoading } = useQuery({
+        queryKey: ['chef-niches'],
+        queryFn: chefService.listNiches,
     });
 
     const registerMutation = useMutation({
@@ -35,13 +34,13 @@ export const ChefSignupScreen = ({ navigation }: any) => {
         },
     });
 
-    const categories = categoriesResponse?.data || [];
+    const niches = nichesResponse?.data || [];
 
-    const toggleNiche = (niche: string) => {
-        if (selectedNiches.includes(niche)) {
-            setSelectedNiches(selectedNiches.filter(n => n !== niche));
+    const toggleNiche = (nicheId: string) => {
+        if (selectedNiches.includes(nicheId)) {
+            setSelectedNiches(selectedNiches.filter(n => n !== nicheId));
         } else {
-            setSelectedNiches([...selectedNiches, niche]);
+            setSelectedNiches([...selectedNiches, nicheId]);
         }
     };
 
@@ -95,14 +94,14 @@ export const ChefSignupScreen = ({ navigation }: any) => {
                             </TouchableOpacity>
 
                             <View className="flex-row flex-wrap mt-4">
-                                {categories.map(niche => (
+                                {niches.map((niche: ChefNiche) => (
                                     <TouchableOpacity
-                                        key={niche}
-                                        onPress={() => toggleNiche(niche)}
-                                        className={`px-4 py-2 rounded-lg mr-2 mb-2 border ${selectedNiches.includes(niche) ? 'bg-[#4CAF50] border-[#4CAF50]' : 'bg-white border-gray-100'}`}
+                                        key={niche.id}
+                                        onPress={() => toggleNiche(niche.id)}
+                                        className={`px-4 py-2 rounded-lg mr-2 mb-2 border ${selectedNiches.includes(niche.id) ? 'bg-[#4CAF50] border-[#4CAF50]' : 'bg-white border-gray-100'}`}
                                     >
-                                        <Text className={`font-satoshi font-bold text-[12px] ${selectedNiches.includes(niche) ? 'text-white' : 'text-[#9E9E9E]'}`}>
-                                            {niche}
+                                        <Text className={`font-satoshi font-bold text-[12px] ${selectedNiches.includes(niche.id) ? 'text-white' : 'text-[#9E9E9E]'}`}>
+                                            {niche.name}
                                         </Text>
                                     </TouchableOpacity>
                                 ))}

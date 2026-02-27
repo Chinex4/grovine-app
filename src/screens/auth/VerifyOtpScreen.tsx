@@ -64,7 +64,7 @@ export const VerifyOtpScreen = ({ navigation, route }: any) => {
 
         try {
             const result = await verifyOtp({ email, otp: otpString, type });
-            if (result.code === 'AUTH_CREDENTIALS') {
+            if (result?.data?.access_token) {
                 Toast.show({
                     type: 'success',
                     text1: 'Success!',
@@ -72,9 +72,9 @@ export const VerifyOtpScreen = ({ navigation, route }: any) => {
                 });
 
                 if (type === 'login') {
-                    navigation.navigate('Preferences');
-                } else {
                     navigation.navigate('Main');
+                } else {
+                    navigation.navigate('Preferences');
                 }
             }
         } catch (error: any) {

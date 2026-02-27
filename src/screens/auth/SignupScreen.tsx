@@ -6,12 +6,14 @@ import { Input } from '../../components/Input';
 import { Button } from '../../components/Button';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
+import Toast from 'react-native-toast-message';
+import { authService } from '../../utils/authService';
 
 const SignupSchema = Yup.object().shape({
     name: Yup.string().required('Full name is required'),
     email: Yup.string().email('Invalid email address').required('Email is required'),
     phone: Yup.string()
-        .matches(/^[0-9]+$/, 'Phone number must be digits only')
+        .matches(/^\+?[0-9]+$/, 'Phone number is invalid')
         .min(10, 'Phone number is too short')
         .required('Phone number is required'),
     referral: Yup.string(),
@@ -28,12 +30,31 @@ export const SignupScreen = ({ navigation }: any) => {
             referral: '',
         },
         validationSchema: SignupSchema,
-        onSubmit: (values) => {
+        onSubmit: async (values) => {
             setLoading(true);
-            setTimeout(() => {
+            try {
+                await authService.signup({
+                    name: values.name,
+                    email: values.email,
+                    phone: values.phone,
+                    referral_code: values.referral || '',
+                });
+
+                Toast.show({
+                    type: 'success',
+                    text1: 'Verification Sent',
+                    text2: 'Please check your email for the code',
+                });
                 setLoading(false);
                 navigation.navigate('VerifyOtp', { email: values.email, type: 'signup' });
-            }, 1500);
+            } catch (error: any) {
+                setLoading(false);
+                Toast.show({
+                    type: 'error',
+                    text1: 'Signup Failed',
+                    text2: error.response?.data?.message || error.message || 'Could not create account',
+                });
+            }
         },
     });
 

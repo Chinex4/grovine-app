@@ -8,6 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider as ReduxProvider } from 'react-redux';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { store } from './src/store';
+import { PushNotificationRegistrar } from './src/components/PushNotificationRegistrar';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -37,6 +38,7 @@ export default function App() {
     <ReduxProvider store={store}>
       <QueryClientProvider client={queryClient}>
         <SafeAreaProvider>
+          <PushNotificationRegistrar />
           <RootNavigator />
           <Toast />
         </SafeAreaProvider>

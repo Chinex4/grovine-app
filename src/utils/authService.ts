@@ -1,8 +1,16 @@
 import api from './api';
 
-export interface SignInResponse {
+export interface AuthActionResponse {
     code: string;
     message?: string;
+    data?: Record<string, any>;
+}
+
+export interface SignupPayload {
+    name: string;
+    email: string;
+    phone: string;
+    referral_code?: string;
 }
 
 export interface VerifyOtpResponse {
@@ -19,35 +27,40 @@ export interface VerifyOtpResponse {
 }
 
 export const authService = {
-    signIn: async (email: string): Promise<SignInResponse> => {
+    signup: async (payload: SignupPayload): Promise<AuthActionResponse> => {
         try {
-            console.log('Attempting sign-in for:', email);
-            const response = await api.post('/auth/sign-in', { email });
-            console.log('Sign-in response data:', response.data);
+            const response = await api.post('/auth/signup', payload);
+            return response.data;
+        } catch (error: any) {
+            console.error('Signup API Error:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    signIn: async (email: string): Promise<AuthActionResponse> => {
+        try {
+            const response = await api.post('/auth/login', { email });
             return response.data;
         } catch (error: any) {
             console.error('Sign-in API Error:', error.response?.data || error.message);
             throw error;
         }
     },
+
     verifyOtp: async (email: string, otp: string, type: 'login' | 'signup' = 'login'): Promise<VerifyOtpResponse> => {
         try {
-            const endpoint = type === 'login' ? '/auth/sign-in/verification' : '/auth/sign-up/verification';
-            console.log(`Attempting OTP verification (${type}) for:`, email);
+            const endpoint = type === 'login' ? '/auth/verify-login-otp' : '/auth/verify-signup-otp';
             const response = await api.post(endpoint, { email, otp });
-            console.log('OTP verification response:', response.data);
             return response.data;
         } catch (error: any) {
             console.error('OTP Verification API Error:', error.response?.data || error.message);
             throw error;
         }
     },
-    resendVerification: async (email: string, type: 'login' | 'signup' = 'signup'): Promise<SignInResponse> => {
+
+    resendVerification: async (email: string, type: 'login' | 'signup' = 'signup'): Promise<AuthActionResponse> => {
         try {
-            const endpoint = type === 'login' ? '/auth/sign-in/verification/resend' : '/auth/sign-up/verification/resend';
-            console.log(`Attempting Resend OTP (${type}) for:`, email);
-            const response = await api.post(endpoint, { email });
-            console.log('Resend OTP response:', response.data);
+            const response = await api.post('/auth/resend-otp', { email, purpose: type });
             return response.data;
         } catch (error: any) {
             console.error('Resend OTP API Error:', error.response?.data || error.message);

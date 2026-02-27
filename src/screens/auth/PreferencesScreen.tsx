@@ -5,7 +5,7 @@ import { ScreenWrapper } from '../../components/ScreenWrapper';
 import { Button } from '../../components/Button';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { onboardingService } from '../../utils/onboardingService';
-import { foodService } from '../../utils/foodService';
+import { foodService, OptionItem } from '../../utils/foodService';
 import Toast from 'react-native-toast-message';
 
 const DEFAULT_COLORS = ['#8D5B2E', '#ABB76C', '#F2994A', '#4CAF50', '#4F4F4F', '#828282'];
@@ -14,14 +14,14 @@ export const PreferencesScreen = ({ navigation }: any) => {
     const [selectedFoods, setSelectedFoods] = useState<string[]>([]);
     const [selectedCuisines, setSelectedCuisines] = useState<string[]>([]);
 
-    const { data: categoriesResponse, isLoading: isCategoriesLoading } = useQuery({
-        queryKey: ['categories'],
-        queryFn: foodService.fetchCategories,
+    const { data: foodsResponse, isLoading: isFoodsLoading } = useQuery({
+        queryKey: ['favorite-foods'],
+        queryFn: foodService.fetchFavoriteFoodOptions,
     });
 
     const { data: regionsResponse, isLoading: isRegionsLoading } = useQuery({
-        queryKey: ['regions'],
-        queryFn: foodService.fetchRegions,
+        queryKey: ['cuisine-regions'],
+        queryFn: foodService.fetchCuisineRegionOptions,
     });
 
     const { mutateAsync: setPreferences, isPending } = useMutation({
@@ -38,7 +38,7 @@ export const PreferencesScreen = ({ navigation }: any) => {
         }
     });
 
-    const categories = categoriesResponse?.data || [];
+    const favoriteFoods = foodsResponse?.data || [];
     const regions = regionsResponse?.data || [];
 
     const handleGetStarted = async () => {
@@ -53,34 +53,34 @@ export const PreferencesScreen = ({ navigation }: any) => {
 
         try {
             await setPreferences({
-                foods: selectedFoods,
-                regions: selectedCuisines
+                favorite_food_ids: selectedFoods,
+                cuisine_region_ids: selectedCuisines,
             });
         } catch (e) {
             // Error handled by mutation onError
         }
     };
 
-    const toggleTag = (label: string, type: 'food' | 'cuisine') => {
+    const toggleTag = (id: string, type: 'food' | 'cuisine') => {
         if (type === 'food') {
             setSelectedFoods(prev =>
-                prev.includes(label) ? prev.filter(t => t !== label) : [...prev, label]
+                prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
             );
         } else {
             setSelectedCuisines(prev =>
-                prev.includes(label) ? prev.filter(t => t !== label) : [...prev, label]
+                prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
             );
         }
     };
 
-    const Tag = ({ label, color, type }: { label: string, color: string, type: 'food' | 'cuisine' }) => {
+    const Tag = ({ id, label, color, type }: { id: string, label: string, color: string, type: 'food' | 'cuisine' }) => {
         const isSelected = type === 'food'
-            ? selectedFoods.includes(label)
-            : selectedCuisines.includes(label);
+            ? selectedFoods.includes(id)
+            : selectedCuisines.includes(id);
 
         return (
             <TouchableOpacity
-                onPress={() => toggleTag(label, type)}
+                onPress={() => toggleTag(id, type)}
                 style={{ backgroundColor: isSelected ? color : `${color}20` }}
                 className="px-4 py-2 rounded-lg mr-2 mb-3"
             >
@@ -94,7 +94,7 @@ export const PreferencesScreen = ({ navigation }: any) => {
         );
     };
 
-    const isLoading = isCategoriesLoading || isRegionsLoading;
+    const isLoading = isFoodsLoading || isRegionsLoading;
 
     if (isLoading) {
         return (
@@ -127,10 +127,11 @@ export const PreferencesScreen = ({ navigation }: any) => {
                             Choose Your Favorite Foods
                         </Text>
                         <View className="flex-row flex-wrap">
-                            {categories.map((label, idx) => (
+                            {favoriteFoods.map((food: OptionItem, idx) => (
                                 <Tag
-                                    key={`food-${idx}`}
-                                    label={label}
+                                    key={`food-${food.id}-${idx}`}
+                                    id={food.id}
+                                    label={food.name}
                                     color={DEFAULT_COLORS[idx % DEFAULT_COLORS.length]}
                                     type="food"
                                 />
@@ -143,10 +144,11 @@ export const PreferencesScreen = ({ navigation }: any) => {
                             Select Your Favorite Cuisine Regions
                         </Text>
                         <View className="flex-row flex-wrap">
-                            {regions.map((label, idx) => (
+                            {regions.map((region: OptionItem, idx) => (
                                 <Tag
-                                    key={`cuisine-${idx}`}
-                                    label={label}
+                                    key={`cuisine-${region.id}-${idx}`}
+                                    id={region.id}
+                                    label={region.name}
                                     color={DEFAULT_COLORS[idx % DEFAULT_COLORS.length]}
                                     type="cuisine"
                                 />

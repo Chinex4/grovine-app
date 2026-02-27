@@ -37,7 +37,21 @@ export const adService = {
     fetchAds: async (params?: ListAdsParams): Promise<ListAdsResponse> => {
         try {
             const response = await api.get('/ads', { params });
-            return response.data;
+            const list = Array.isArray(response.data?.data)
+                ? response.data.data
+                : Array.isArray(response.data?.data?.data)
+                    ? response.data.data.data
+                    : Array.isArray(response.data)
+                        ? response.data
+                        : [];
+            const meta = response.data?.meta || response.data?.data?.meta || {};
+            return {
+                code: response.data?.code,
+                data: {
+                    data: list,
+                    meta,
+                },
+            };
         } catch (error: any) {
             console.error('Fetch Ads Error:', error.response?.data || error.message);
             throw error;

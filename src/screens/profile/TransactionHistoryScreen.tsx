@@ -5,6 +5,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { transactionService, Transaction } from '../../utils/transactionService';
 
+const truncateText = (value: string, max = 32) => {
+    if (!value) return '';
+    if (value.length <= max) return value;
+    return `${value.slice(0, max - 1)}…`;
+};
+
 export const TransactionHistoryScreen = ({ navigation }: any) => {
     const { data: transactionResponse, isLoading, error } = useQuery({
         queryKey: ['transactions'],
@@ -14,11 +20,18 @@ export const TransactionHistoryScreen = ({ navigation }: any) => {
     const transactions = transactionResponse?.data?.data || [];
 
     const renderTransactionItem = ({ item }: { item: Transaction }) => {
-        const isCredit = item.type === 'CREDIT';
+        const isCredit = item.direction === 'CREDIT';
+        const title = truncateText(
+            (item.description || item.purpose || item.type || 'Transaction')
+                .replace(/_/g, ' ')
+                .trim(),
+            30
+        );
+        const detail = truncateText(item.reference || new Date(item.created_at).toLocaleDateString(), 28);
 
         return (
             <View className="flex-row items-center justify-between py-4 border-b border-gray-50">
-                <View className="flex-row items-center">
+                <View className="flex-row items-center flex-1 pr-3">
                     <View className={`w-10 h-10 rounded-full items-center justify-center mr-4 ${isCredit ? 'bg-green-100' : 'bg-red-100'}`}>
                         <Ionicons
                             name={isCredit ? 'arrow-down' : 'arrow-up'}
@@ -26,18 +39,23 @@ export const TransactionHistoryScreen = ({ navigation }: any) => {
                             color={isCredit ? '#4CAF50' : '#F44336'}
                         />
                     </View>
-                    <View>
-                        <Text className="text-[15px] font-satoshi font-bold text-[#424242] capitalize">
-                            {item.purpose.toLowerCase().replace('_', ' ')}
+                    <View className="flex-1">
+                        <Text className="text-[15px] font-satoshi font-bold text-[#424242] capitalize" numberOfLines={1}>
+                            {title}
                         </Text>
-                        <Text className="text-[12px] font-satoshi text-[#9E9E9E]">
-                            {new Date(item.created_at).toLocaleDateString()}
+                        <Text className="text-[12px] font-satoshi text-[#9E9E9E]" numberOfLines={1}>
+                            {detail}
                         </Text>
                     </View>
                 </View>
-                <Text className={`text-[15px] font-satoshi font-bold ${isCredit ? 'text-[#4CAF50]' : 'text-[#424242]'}`}>
-                    {isCredit ? '+' : '-'}₦{item.amount.toLocaleString()}
-                </Text>
+                <View className="w-28 items-end">
+                    <Text
+                        className={`text-[15px] font-satoshi font-bold ${isCredit ? 'text-[#4CAF50]' : 'text-[#424242]'}`}
+                        numberOfLines={1}
+                    >
+                        {isCredit ? '+' : '-'}₦{Number(item.amount || 0).toLocaleString()}
+                    </Text>
+                </View>
             </View>
         );
     };

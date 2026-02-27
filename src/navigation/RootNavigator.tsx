@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Home, Search, ShoppingBag, User } from 'lucide-react-native';
+import { flushPendingNavigation, navigationRef } from './navigationRef';
 
 import { OnboardingScreen } from '../screens/onboarding/OnboardingScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
@@ -29,9 +30,13 @@ import { FruitMealRecipesScreen } from '../screens/recipes/FruitMealRecipesScree
 import { SearchScreen } from '../screens/search/SearchScreen';
 import { SearchResultsScreen } from '../screens/search/SearchResultsScreen';
 import { ProfileDetailsScreen } from '../screens/profile/ProfileDetailsScreen';
-import { AddressScreen } from '../screens/profile/AddressScreen';
 import { ReferralsScreen } from '../screens/profile/ReferralsScreen';
 import { TransactionHistoryScreen } from '../screens/profile/TransactionHistoryScreen';
+import { GiftCardsScreen } from '../screens/profile/GiftCardsScreen';
+import { WhatsNewScreen } from '../screens/profile/WhatsNewScreen';
+import { FaqsScreen } from '../screens/profile/FaqsScreen';
+import { SupportScreen } from '../screens/profile/SupportScreen';
+import { LegalScreen } from '../screens/profile/LegalScreen';
 import { ChefSignupScreen } from '../screens/chef/ChefSignupScreen';
 import { ChefProfileScreen } from '../screens/chef/ChefProfileScreen';
 import { ManageVideosScreen } from '../screens/chef/ManageVideosScreen';
@@ -102,7 +107,7 @@ const MainTabNavigator = () => {
 
 export const RootNavigator = () => {
     return (
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef} onReady={flushPendingNavigation}>
             <Stack.Navigator screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="Onboarding" component={OnboardingScreen} />
                 <Stack.Screen name="Login" component={LoginScreen} />
@@ -123,8 +128,12 @@ export const RootNavigator = () => {
                 <Stack.Screen name="CookingSteps" component={CookingStepsScreen} />
                 <Stack.Screen name="VideoPreview" component={VideoPreviewScreen} />
                 <Stack.Screen name="ProfileDetails" component={ProfileDetailsScreen} />
-                <Stack.Screen name="Address" component={AddressScreen} />
                 <Stack.Screen name="Referrals" component={ReferralsScreen} />
+                <Stack.Screen name="GiftCards" component={GiftCardsScreen} />
+                <Stack.Screen name="WhatsNew" component={WhatsNewScreen} />
+                <Stack.Screen name="Faqs" component={FaqsScreen} />
+                <Stack.Screen name="Support" component={SupportScreen} />
+                <Stack.Screen name="Legal" component={LegalScreen} />
                 <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen} />
                 <Stack.Screen name="SavedRecipes" component={SavedRecipesScreen} />
                 <Stack.Screen name="RecipeDetail" component={RecipeDetailScreen} />

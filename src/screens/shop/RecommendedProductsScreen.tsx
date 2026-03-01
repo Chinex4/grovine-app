@@ -2,10 +2,12 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, Image, TouchableOpacity, TextInput, FlatList, ActivityIndicator } from 'react-native';
 import { ScreenWrapper } from '../../components/ScreenWrapper';
 import { Ionicons } from '@expo/vector-icons';
-import { Search, ShoppingCart } from 'lucide-react-native';
+import { Search } from 'lucide-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { CategoryItem, foodService, FoodItem } from '../../utils/foodService';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
+import { useCartActions } from '../../hooks/useCartActions';
+import { CartQuantityControl } from '../../components/CartQuantityControl';
 
 const matchesCategory = (product: FoodItem, categoryId: string) =>
     product.category_id === categoryId || String(product.category?.id ?? '') === categoryId;
@@ -14,6 +16,7 @@ export const RecommendedProductsScreen = ({ navigation }: any) => {
     const [selectedCategoryId, setSelectedCategoryId] = useState('');
     const [searchText, setSearchText] = useState('');
     const debouncedSearch = useDebouncedValue(searchText.trim().toLowerCase(), 300);
+    const { getProductQuantity, incrementProduct, decrementProduct, isProductPending } = useCartActions();
 
     const { data: categoriesResponse, isLoading: isCategoriesLoading } = useQuery({
         queryKey: ['recommended-categories'],
@@ -140,15 +143,14 @@ export const RecommendedProductsScreen = ({ navigation }: any) => {
                                         <Text className="text-[13px] font-satoshi font-bold text-[#424242]">~₦{item.price?.toLocaleString() || '0'}</Text>
                                     </View>
 
-                                    <TouchableOpacity
-                                        onPress={(e) => {
-                                            e.stopPropagation();
-                                        }}
-                                        className="bg-[#4CAF50] h-10 rounded-xl flex-row items-center justify-center"
-                                    >
-                                        <Text className="text-white font-satoshi font-bold text-[10px] mr-2">Add to Cart</Text>
-                                        <ShoppingCart size={12} color="white" />
-                                    </TouchableOpacity>
+                                    <CartQuantityControl
+                                        quantity={getProductQuantity(item.id)}
+                                        onAdd={() => incrementProduct(item.id)}
+                                        onIncrement={() => incrementProduct(item.id)}
+                                        onDecrement={() => decrementProduct(item.id)}
+                                        loading={isProductPending(item.id)}
+                                        compact
+                                    />
                                 </View>
                             </TouchableOpacity>
                         )}
@@ -163,4 +165,3 @@ export const RecommendedProductsScreen = ({ navigation }: any) => {
         </ScreenWrapper>
     );
 };
-

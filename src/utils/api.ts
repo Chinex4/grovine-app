@@ -1,5 +1,6 @@
 import axios from 'axios';
-import * as SecureStore from 'expo-secure-store';
+import { appStorage } from './appStorage';
+import { STORAGE_KEYS } from '../constants/storageKeys';
 
 export const BASE_URL = 'https://api.grovine.ng/api';
 
@@ -18,7 +19,7 @@ const resolveAccessToken = async () => {
         return inMemoryAccessToken;
     }
 
-    const storedToken = await SecureStore.getItemAsync('access_token');
+    const storedToken = await appStorage.getItem(STORAGE_KEYS.accessToken);
     if (storedToken) {
         inMemoryAccessToken = storedToken;
     }

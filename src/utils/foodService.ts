@@ -53,6 +53,14 @@ export interface FetchFoodsResponse {
     };
 }
 
+export interface FavoriteToggleResponse {
+    message?: string;
+    data: {
+        product_id: string;
+        is_favorited: boolean;
+    };
+}
+
 const extractArray = <T = any>(payload: any): T[] => {
     if (Array.isArray(payload)) return payload;
     if (Array.isArray(payload?.data)) return payload.data;
@@ -152,6 +160,36 @@ export const foodService = {
             return { data: normalizeProduct(payload) };
         } catch (error: any) {
             console.error(`Fetch Product (${id}) Error:`, error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    toggleProductFavorite: async (productId: string): Promise<FavoriteToggleResponse> => {
+        try {
+            const response = await api.post(`/products/${productId}/favorite`);
+            const payload = response.data || {};
+            return {
+                message: payload?.message,
+                data: {
+                    product_id: String(payload?.data?.product_id ?? productId),
+                    is_favorited: Boolean(payload?.data?.is_favorited),
+                },
+            };
+        } catch (error: any) {
+            console.error(`Toggle Product Favorite (${productId}) Error:`, error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    fetchFavoriteProducts: async (): Promise<FetchFoodsResponse> => {
+        try {
+            const response = await api.get('/products/favorites');
+            return {
+                data: extractArray(response.data).map(normalizeProduct),
+                meta: extractMeta(response.data),
+            };
+        } catch (error: any) {
+            console.error('Fetch Favorite Products Error:', error.response?.data || error.message);
             throw error;
         }
     },

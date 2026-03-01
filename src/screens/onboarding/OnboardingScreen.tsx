@@ -3,6 +3,8 @@ import { View, Text, FlatList, Dimensions, Image, NativeSyntheticEvent, NativeSc
 import { ScreenWrapper } from '../../components/ScreenWrapper';
 import { Button } from '../../components/Button';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { appStorage } from '../../utils/appStorage';
+import { STORAGE_KEYS } from '../../constants/storageKeys';
 
 const { width } = Dimensions.get('window');
 
@@ -48,12 +50,17 @@ export const OnboardingScreen = ({ navigation }: any) => {
         setActiveIndex(index);
     };
 
-    const nextSlide = () => {
+    const nextSlide = async () => {
         if (activeIndex < SLIDES.length - 1) {
             flatListRef.current?.scrollToIndex({ index: activeIndex + 1, animated: true });
             setActiveIndex(activeIndex + 1);
         } else {
-            navigation.navigate('Login');
+            await appStorage.setItem(STORAGE_KEYS.hasOnboarded, 'true');
+            await appStorage.setItem(STORAGE_KEYS.hasOnbiardedLegacy, 'true');
+            navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+            });
         }
     };
 

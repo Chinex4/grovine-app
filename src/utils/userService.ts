@@ -4,6 +4,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 export interface UserProfile {
     id: string;
     name: string;
+    role?: string;
     username?: string;
     phone?: string;
     email: string;
@@ -59,6 +60,7 @@ const normalizeUser = (payload: any): UserProfile => ({
     ...payload,
     id: String(payload?.id ?? payload?.user_id ?? ''),
     name: payload?.name ?? '',
+    role: payload?.role ? String(payload.role) : '',
     username: payload?.username ?? '',
     phone: payload?.phone ?? '',
     email: payload?.email ?? '',

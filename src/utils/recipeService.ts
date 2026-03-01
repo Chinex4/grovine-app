@@ -6,6 +6,7 @@ export interface RecipeIngredient {
     name?: string;
     product_id?: string;
     item_text?: string;
+    is_optional?: boolean;
 }
 
 export interface RecipeInstruction {
@@ -17,10 +18,16 @@ export interface Recipe {
     id: string;
     title: string;
     description: string;
+    short_description?: string;
     chef_id: string;
     chef_name?: string;
     chef_avatar?: string;
     price: string | number;
+    status?: string;
+    estimated_cost?: string | number;
+    duration_seconds?: number;
+    servings?: number;
+    is_quick_recipe?: boolean;
     rating: number;
     likes_count: number;
     dislikes_count: number;
@@ -61,6 +68,24 @@ const extractArray = <T = any>(payload: any): T[] => {
 
 const extractMeta = (payload: any) => payload?.meta || payload?.data?.meta || {};
 
+const normalizeMediaUrl = (url: unknown) => {
+    if (!url || typeof url !== 'string') return '';
+    if (/^https?:\/\//i.test(url)) return url;
+
+    const trimmed = url.replace(/^\/+/, '');
+    if (!trimmed) return '';
+
+    if (trimmed.startsWith('storage/')) {
+        return `https://api.grovine.ng/${trimmed}`;
+    }
+
+    if (trimmed.startsWith('recipes/') || trimmed.startsWith('products/') || trimmed.startsWith('categories/')) {
+        return `https://api.grovine.ng/storage/${trimmed}`;
+    }
+
+    return `https://api.grovine.ng/${trimmed}`;
+};
+
 const normalizeInstructions = (instructions: any): RecipeInstruction[] => {
     if (Array.isArray(instructions)) {
         return instructions.map((instruction: any, index) => ({
@@ -87,31 +112,40 @@ const normalizeIngredients = (ingredients: any): RecipeIngredient[] => {
     return ingredients.map((ingredient: any) => ({
         id: String(ingredient?.id ?? ingredient?.product_id ?? ingredient?.item_text ?? ''),
         quantity: String(ingredient?.quantity ?? ingredient?.cart_quantity ?? ''),
-        name: ingredient?.name,
+        name: ingredient?.name ?? ingredient?.item_text ?? ingredient?.product?.name ?? '',
         product_id: ingredient?.product_id,
-        item_text: ingredient?.item_text,
+        item_text: ingredient?.item_text ?? ingredient?.name ?? ingredient?.product?.name,
+        is_optional: Boolean(ingredient?.is_optional),
     }));
 };
 
 const normalizeRecipe = (recipe: any): Recipe => {
     const media = recipe?.media || {};
     const chef = recipe?.chef || recipe?.chef_profile || {};
+    const coverImageUrl = normalizeMediaUrl(media?.cover_image_url ?? media?.cover_image?.url ?? recipe?.cover_image_url);
+    const videoUrl = normalizeMediaUrl(media?.video_url ?? media?.video?.url ?? recipe?.video_url);
 
     return {
         ...recipe,
         id: String(recipe?.id ?? ''),
         title: recipe?.title ?? '',
         description: recipe?.description ?? recipe?.short_description ?? '',
+        short_description: recipe?.short_description ?? recipe?.description ?? '',
         chef_id: String(recipe?.chef_id ?? chef?.id ?? ''),
         chef_name: recipe?.chef_name ?? chef?.chef_name ?? chef?.name,
-        chef_avatar: recipe?.chef_avatar ?? chef?.profile_picture?.url,
+        chef_avatar: normalizeMediaUrl(recipe?.chef_avatar ?? chef?.profile_picture?.url),
         price: recipe?.price ?? recipe?.estimated_cost ?? 0,
+        status: recipe?.status,
+        estimated_cost: recipe?.estimated_cost ?? recipe?.price ?? 0,
+        duration_seconds: Number(recipe?.duration_seconds ?? 0) || undefined,
+        servings: Number(recipe?.servings ?? 0) || undefined,
+        is_quick_recipe: Boolean(recipe?.is_quick_recipe),
         rating: Number(recipe?.rating ?? 0),
         likes_count: Number(recipe?.likes_count ?? 0),
         dislikes_count: Number(recipe?.dislikes_count ?? 0),
         media: {
-            video_url: media?.video_url ?? media?.video?.url,
-            cover_image_url: media?.cover_image_url ?? media?.cover_image?.url,
+            video_url: videoUrl || undefined,
+            cover_image_url: coverImageUrl || undefined,
         },
         ingredients: normalizeIngredients(recipe?.ingredients),
         instructions: normalizeInstructions(recipe?.instructions),
@@ -212,15 +246,25 @@ export const recipeService = {
         }
     },
 
-    listMyRecipes: async (status?: string): Promise<ListRecipesResponse> => {
+    listMyRecipes: async (status?: string, q?: string): Promise<ListRecipesResponse> => {
         try {
-            const response = await api.get('/chef/recipes', { params: { status } });
+            const response = await api.get('/chef/recipes', { params: { status, q } });
             return {
                 data: extractArray(response.data).map(normalizeRecipe),
                 meta: extractMeta(response.data),
             };
         } catch (error: any) {
             console.error('List My Recipes Error:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    getMyRecipeById: async (id: string): Promise<{ data: Recipe }> => {
+        try {
+            const response = await api.get(`/chef/recipes/${id}`);
+            return { data: normalizeRecipe(response.data?.data || response.data) };
+        } catch (error: any) {
+            console.error(`Get My Recipe (${id}) Error:`, error.response?.data || error.message);
             throw error;
         }
     },

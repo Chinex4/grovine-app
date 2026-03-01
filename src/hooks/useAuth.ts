@@ -2,9 +2,10 @@ import { useMutation } from '@tanstack/react-query';
 import { authService } from '../utils/authService';
 import { useDispatch } from 'react-redux';
 import { setCredentials } from '../store/slices/authSlice';
-import * as SecureStore from 'expo-secure-store';
 import { jwtDecode } from 'jwt-decode';
 import { setAccessToken } from '../utils/api';
+import { appStorage } from '../utils/appStorage';
+import { STORAGE_KEYS } from '../constants/storageKeys';
 
 export const useAuth = () => {
     const dispatch = useDispatch();
@@ -37,11 +38,11 @@ export const useAuth = () => {
                 }
 
                 // Save tokens securely
-                await SecureStore.setItemAsync('access_token', accessToken);
+                await appStorage.setItem(STORAGE_KEYS.accessToken, accessToken);
                 if (refreshToken) {
-                    await SecureStore.setItemAsync('refresh_token', refreshToken);
+                    await appStorage.setItem(STORAGE_KEYS.refreshToken, refreshToken);
                 } else {
-                    await SecureStore.deleteItemAsync('refresh_token');
+                    await appStorage.removeItem(STORAGE_KEYS.refreshToken);
                 }
                 setAccessToken(accessToken);
 

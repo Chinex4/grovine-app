@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Modal } from 'react-native';
 import { ScreenWrapper } from '../../components/ScreenWrapper';
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { chefService, ChefNiche } from '../../utils/chefService';
 import Toast from 'react-native-toast-message';
 
 export const ChefSignupScreen = ({ navigation }: any) => {
+    const queryClient = useQueryClient();
     const [chefName, setChefName] = useState('');
     const [selectedNiches, setSelectedNiches] = useState<string[]>([]);
+    const [successModalVisible, setSuccessModalVisible] = useState(false);
 
     const { data: nichesResponse, isLoading } = useQuery({
         queryKey: ['chef-niches'],
@@ -17,13 +19,9 @@ export const ChefSignupScreen = ({ navigation }: any) => {
 
     const registerMutation = useMutation({
         mutationFn: (params: { name: string; niches: string[] }) => chefService.registerChef(params),
-        onSuccess: () => {
-            Toast.show({
-                type: 'success',
-                text1: 'Chef Account Created!',
-                text2: 'Welcome to the Grovine family.',
-            });
-            navigation.replace('ChefProfile');
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ['me'] });
+            setSuccessModalVisible(true);
         },
         onError: (error: any) => {
             Toast.show({
@@ -54,6 +52,14 @@ export const ChefSignupScreen = ({ navigation }: any) => {
             return;
         }
         registerMutation.mutate({ name: chefName, niches: selectedNiches });
+    };
+
+    const handleGoToProfile = () => {
+        setSuccessModalVisible(false);
+        navigation.reset({
+            index: 0,
+            routes: [{ name: 'Main', params: { screen: 'Profile' } }],
+        });
     };
 
     return (
@@ -125,6 +131,31 @@ export const ChefSignupScreen = ({ navigation }: any) => {
                     </TouchableOpacity>
                 </View>
             </View>
+
+            <Modal
+                visible={successModalVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setSuccessModalVisible(false)}
+            >
+                <View className="flex-1 bg-black/45 items-center justify-center px-8">
+                    <View className="bg-white rounded-2xl w-full p-6 items-center">
+                        <Ionicons name="checkmark-circle" size={56} color="#4CAF50" />
+                        <Text className="font-satoshi font-bold text-[18px] text-[#424242] mt-4 mb-2">
+                            You Are Now a Chef
+                        </Text>
+                        <Text className="font-satoshi text-[13px] text-[#9E9E9E] text-center mb-5">
+                            Your chef profile has been created successfully.
+                        </Text>
+                        <TouchableOpacity
+                            onPress={handleGoToProfile}
+                            className="w-full h-12 rounded-xl bg-[#4CAF50] items-center justify-center"
+                        >
+                            <Text className="font-satoshi font-bold text-[14px] text-white">Go To Profile</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </ScreenWrapper>
     );
 };

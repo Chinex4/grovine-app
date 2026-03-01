@@ -10,14 +10,16 @@ import {
 } from "react-native";
 import { ScreenWrapper } from "../../components/ScreenWrapper";
 import { Ionicons } from "@expo/vector-icons";
-import { ShoppingCart } from "lucide-react-native";
 import { useQuery } from "@tanstack/react-query";
 import { foodService } from "../../utils/foodService";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
+import { useCartActions } from "../../hooks/useCartActions";
+import { CartQuantityControl } from "../../components/CartQuantityControl";
 
 export const SearchResultsScreen = ({ navigation, route }: any) => {
   const [query, setQuery] = useState(route?.params?.query || "");
   const debouncedQuery = useDebouncedValue(query.trim(), 350);
+  const { getProductQuantity, incrementProduct, decrementProduct, isProductPending } = useCartActions();
 
   const {
     data: searchResponse,
@@ -139,17 +141,14 @@ export const SearchResultsScreen = ({ navigation, route }: any) => {
                     </Text>
                   </View>
 
-                  <TouchableOpacity
-                    onPress={(e) => {
-                      e.stopPropagation();
-                    }}
-                    className="bg-[#4CAF50] h-10 rounded-xl flex-row items-center justify-center"
-                  >
-                    <Text className="text-white font-satoshi font-bold text-[10px] mr-2">
-                      Add to Cart
-                    </Text>
-                    <ShoppingCart size={12} color="white" />
-                  </TouchableOpacity>
+                  <CartQuantityControl
+                    quantity={getProductQuantity(item.id)}
+                    onAdd={() => incrementProduct(item.id)}
+                    onIncrement={() => incrementProduct(item.id)}
+                    onDecrement={() => decrementProduct(item.id)}
+                    loading={isProductPending(item.id)}
+                    compact
+                  />
                 </View>
               </TouchableOpacity>
             )}

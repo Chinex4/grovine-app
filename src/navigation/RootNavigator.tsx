@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Home, Search, ShoppingBag, User } from 'lucide-react-native';
 import { flushPendingNavigation, navigationRef } from './navigationRef';
+import { AppSplashScreen } from '../screens/splash/AppSplashScreen';
 
 import { OnboardingScreen } from '../screens/onboarding/OnboardingScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
@@ -15,7 +16,9 @@ import { HomeScreen } from '../screens/home/HomeScreen';
 import { ShopScreen } from '../screens/shop/ShopScreen';
 import { ProductDetailScreen } from '../screens/shop/ProductDetailScreen';
 import { RecommendedProductsScreen } from '../screens/shop/RecommendedProductsScreen';
+import { SavedProductsScreen } from '../screens/shop/SavedProductsScreen';
 import { OrdersScreen } from '../screens/orders/OrdersScreen';
+import { OrderDetailScreen } from '../screens/orders/OrderDetailScreen';
 import { CheckoutScreen } from '../screens/orders/CheckoutScreen';
 import { CardPaymentScreen } from '../screens/orders/CardPaymentScreen';
 import { PaymentOtpScreen } from '../screens/orders/PaymentOtpScreen';
@@ -109,6 +112,7 @@ export const RootNavigator = () => {
     return (
         <NavigationContainer ref={navigationRef} onReady={flushPendingNavigation}>
             <Stack.Navigator screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="AppSplash" component={AppSplashScreen} />
                 <Stack.Screen name="Onboarding" component={OnboardingScreen} />
                 <Stack.Screen name="Login" component={LoginScreen} />
                 <Stack.Screen name="Signup" component={SignupScreen} />
@@ -117,6 +121,7 @@ export const RootNavigator = () => {
                 <Stack.Screen name="Notifications" component={NotificationsScreen} />
                 <Stack.Screen name="Main" component={MainTabNavigator} />
                 <Stack.Screen name="Checkout" component={CheckoutScreen} />
+                <Stack.Screen name="OrderDetails" component={OrderDetailScreen} />
                 <Stack.Screen name="CardPayment" component={CardPaymentScreen} />
                 <Stack.Screen name="PaymentOtp" component={PaymentOtpScreen} />
                 <Stack.Screen name="WalletPayment" component={WalletPaymentScreen} />
@@ -140,6 +145,7 @@ export const RootNavigator = () => {
                 <Stack.Screen name="RecipeOverview" component={RecipeOverviewScreen} />
                 <Stack.Screen name="RecipeIngredients" component={RecipeIngredientsScreen} />
                 <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
+                <Stack.Screen name="SavedProducts" component={SavedProductsScreen} />
                 <Stack.Screen name="SearchHistory" component={SearchScreen} />
                 <Stack.Screen name="RecommendedProducts" component={RecommendedProductsScreen} />
                 <Stack.Screen name="FruitMealRecipes" component={FruitMealRecipesScreen} />

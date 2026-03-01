@@ -1,12 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, Image, TouchableOpacity, FlatList, Linking, ActivityIndicator } from 'react-native';
-import { Search, ShoppingCart } from 'lucide-react-native';
+import { Search } from 'lucide-react-native';
 import { ScreenWrapper } from '../../components/ScreenWrapper';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { adService, Advertisement } from '../../utils/adService';
 import { userService } from '../../utils/userService';
 import { CategoryItem, foodService, FoodItem } from '../../utils/foodService';
+import { useCartActions } from '../../hooks/useCartActions';
+import { CartQuantityControl } from '../../components/CartQuantityControl';
 
 const matchesCategory = (product: FoodItem, categoryId: string) =>
     product.category_id === categoryId || String(product.category?.id ?? '') === categoryId;
@@ -15,6 +17,7 @@ const ALL_CATEGORY_ID = 'all';
 
 export const HomeScreen = ({ navigation }: any) => {
     const [selectedCategoryId, setSelectedCategoryId] = useState(ALL_CATEGORY_ID);
+    const { getProductQuantity, incrementProduct, decrementProduct, isProductPending } = useCartActions();
 
     const { data: adsResponse, isLoading: isAdsLoading } = useQuery({
         queryKey: ['ads'],
@@ -134,10 +137,14 @@ export const HomeScreen = ({ navigation }: any) => {
                 <Text className="text-[13px] font-satoshi font-bold text-[#424242] flex-1" numberOfLines={1}>{item.name}</Text>
                 <Text className="text-[14px] font-satoshi font-bold text-[#424242]">~₦{item.price?.toLocaleString() || '0'}</Text>
             </View>
-            <TouchableOpacity className="bg-[#4CAF50] py-2.5 rounded-xl flex-row items-center justify-center">
-                <Text className="text-white font-satoshi font-bold text-xs mr-2">Add to Cart</Text>
-                <ShoppingCart size={14} color="white" />
-            </TouchableOpacity>
+            <CartQuantityControl
+                quantity={getProductQuantity(item.id)}
+                onAdd={() => incrementProduct(item.id)}
+                onIncrement={() => incrementProduct(item.id)}
+                onDecrement={() => decrementProduct(item.id)}
+                loading={isProductPending(item.id)}
+                compact
+            />
         </TouchableOpacity>
     );
 

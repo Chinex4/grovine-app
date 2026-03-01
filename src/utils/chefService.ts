@@ -27,8 +27,7 @@ export interface ChefNiche {
 
 export interface RegisterChefParams {
     name: string;
-    niches?: string[];
-    niche_id?: string;
+    niches: string[];
 }
 
 export interface UpdateChefParams {
@@ -93,11 +92,14 @@ export const chefService = {
     listNiches: async (): Promise<{ data: ChefNiche[] }> => {
         try {
             const response = await api.get('/niches');
-            const niches = extractArray(response.data).map((niche: any) => ({
-                ...niche,
-                id: String(niche?.id ?? ''),
-                name: String(niche?.name ?? ''),
-            }));
+            const niches = extractArray(response.data)
+                .map((niche: any) => ({
+                    ...niche,
+                    id: String(niche?.id ?? ''),
+                    name: String(niche?.name ?? ''),
+                    sort_order: Number(niche?.sort_order ?? 0),
+                }))
+                .sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
             return { data: niches };
         } catch (error: any) {
             console.error('List Niches Error:', error.response?.data || error.message);
@@ -107,10 +109,9 @@ export const chefService = {
 
     registerChef: async (params: RegisterChefParams): Promise<{ code?: string; data: Chef }> => {
         try {
-            const chefNicheId = params.niche_id || params.niches?.[0];
             const response = await api.post('/chef/become', {
                 chef_name: params.name,
-                chef_niche_id: chefNicheId,
+                chef_niche_ids: params.niches,
             });
             return {
                 code: response.data?.code,

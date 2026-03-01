@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     View,
     Text,
@@ -17,12 +17,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { userService } from '../../utils/userService';
 import Toast from 'react-native-toast-message';
 import * as ImagePicker from 'expo-image-picker';
-import * as SecureStore from 'expo-secure-store';
 import { clearAccessToken } from '../../utils/api';
 import { useDispatch } from 'react-redux';
 import { logout } from '../../store/slices/authSlice';
+import { appStorage } from '../../utils/appStorage';
+import { STORAGE_KEYS } from '../../constants/storageKeys';
 
-const MENU_SECTIONS = [
+type ProfileMenuSection = {
+    title: string;
+    items: { icon: React.ReactNode; title: string }[];
+};
+
+const BASE_MENU_SECTIONS: ProfileMenuSection[] = [
     {
         title: 'Personal',
         items: [
@@ -32,6 +38,7 @@ const MENU_SECTIONS = [
     {
         title: 'Services',
         items: [
+            { icon: <Ionicons name="heart-outline" size={18} color="#424242" />, title: 'Saved Products' },
             { icon: <Share2 size={18} color="#424242" />, title: 'Referrals' },
             { icon: <Gift size={18} color="#424242" />, title: 'Gift Cards' },
         ],
@@ -46,6 +53,45 @@ const MENU_SECTIONS = [
         ],
     },
 ];
+
+const extractChefNiches = (chef: any): string[] => {
+    if (!chef) return [];
+
+    const toName = (item: any) => {
+        if (!item) return '';
+        if (typeof item === 'string') return item.trim();
+        if (typeof item?.name === 'string') return item.name.trim();
+        if (typeof item?.title === 'string') return item.title.trim();
+        return '';
+    };
+
+    const nicheNames: string[] = [];
+
+    const arrayCandidates = [chef?.niches, chef?.chef_niches, chef?.niche_names];
+    arrayCandidates.forEach((candidate) => {
+        if (Array.isArray(candidate)) {
+            candidate.forEach((item) => {
+                const name = toName(item);
+                if (name) nicheNames.push(name);
+            });
+        }
+    });
+
+    const singleCandidates = [chef?.chef_niche, chef?.chefNiche, chef?.niche];
+    singleCandidates.forEach((candidate) => {
+        const name = toName(candidate);
+        if (name) nicheNames.push(name);
+    });
+
+    const scalarCandidates = [chef?.niche_name, chef?.chef_niche_name];
+    scalarCandidates.forEach((candidate) => {
+        if (typeof candidate === 'string' && candidate.trim()) {
+            nicheNames.push(candidate.trim());
+        }
+    });
+
+    return [...new Set(nicheNames)];
+};
 
 export const ProfileScreen = ({ navigation }: any) => {
     const dispatch = useDispatch();
@@ -81,8 +127,8 @@ export const ProfileScreen = ({ navigation }: any) => {
     const deleteAccountMutation = useMutation({
         mutationFn: userService.deleteAccount,
         onSuccess: async () => {
-            await SecureStore.deleteItemAsync('access_token');
-            await SecureStore.deleteItemAsync('refresh_token');
+            await appStorage.removeItem(STORAGE_KEYS.accessToken);
+            await appStorage.removeItem(STORAGE_KEYS.refreshToken);
             clearAccessToken();
             dispatch(logout());
             queryClient.clear();
@@ -92,7 +138,7 @@ export const ProfileScreen = ({ navigation }: any) => {
             });
             navigation.reset({
                 index: 0,
-                routes: [{ name: 'Onboarding' }],
+                routes: [{ name: 'AppSplash' }],
             });
         },
         onError: (error: any) => {
@@ -108,6 +154,24 @@ export const ProfileScreen = ({ navigation }: any) => {
     const fullName = user?.name || 'User';
     const avatarUri = user?.profile_picture?.url?.trim();
     const hasValidAvatar = !!avatarUri && avatarUri !== 'null' && avatarUri !== 'undefined';
+    const isChef = String(user?.role || '').toLowerCase() === 'chef';
+    const chefNiches = useMemo(() => extractChefNiches(user?.chef), [user?.chef]);
+
+    const menuSections = useMemo<ProfileMenuSection[]>(() => {
+        const sections: ProfileMenuSection[] = [...BASE_MENU_SECTIONS];
+
+        if (isChef) {
+            sections.splice(1, 0, {
+                title: 'Chef',
+                items: [
+                    { icon: <Ionicons name="videocam-outline" size={18} color="#424242" />, title: 'Recipes' },
+                    { icon: <Ionicons name="add-circle-outline" size={18} color="#424242" />, title: 'Add New Recipe' },
+                ],
+            });
+        }
+
+        return sections;
+    }, [isChef]);
 
     const handlePickFromGallery = async () => {
         const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -151,14 +215,14 @@ export const ProfileScreen = ({ navigation }: any) => {
     };
 
     const handleSignOut = async () => {
-        await SecureStore.deleteItemAsync('access_token');
-        await SecureStore.deleteItemAsync('refresh_token');
+        await appStorage.removeItem(STORAGE_KEYS.accessToken);
+        await appStorage.removeItem(STORAGE_KEYS.refreshToken);
         clearAccessToken();
         dispatch(logout());
         queryClient.clear();
         navigation.reset({
             index: 0,
-            routes: [{ name: 'Onboarding' }],
+            routes: [{ name: 'AppSplash' }],
         });
     };
 
@@ -228,18 +292,47 @@ export const ProfileScreen = ({ navigation }: any) => {
                             <Text className="text-[#9E9E9E] font-satoshi text-[13px] mt-1">{user?.email || ''}</Text>
                         </View>
 
-                        <TouchableOpacity
-                            onPress={() => navigation.navigate('ChefSignup')}
-                            className="mt-6 bg-[#4CAF50]/10 border border-[#4CAF50]/30 py-3 px-4 rounded-xl flex-row items-center self-start"
-                        >
-                            <View className="w-8 h-8 rounded-full bg-[#4CAF50] items-center justify-center mr-3">
-                                <Ionicons name="restaurant" size={16} color="white" />
+                        {isChef ? (
+                            <View className="mt-6">
+                                <View className="bg-[#E8F5E9] border border-[#4CAF50]/30 py-3 px-4 rounded-xl flex-row items-center self-start">
+                                    <View className="w-8 h-8 rounded-full bg-[#4CAF50] items-center justify-center mr-3">
+                                        <Ionicons name="checkmark" size={16} color="white" />
+                                    </View>
+                                    <Text className="text-[#2E7D32] font-satoshi font-bold text-[14px]">Chef Account Active</Text>
+                                </View>
+                                {chefNiches.length > 0 ? (
+                                    <View className="mt-3 flex-row flex-wrap">
+                                        {chefNiches.map((niche, index) => (
+                                            <View
+                                                key={`${niche}-${index}`}
+                                                className={`px-3 py-1.5 rounded-lg mr-2 mb-2 border ${
+                                                    index % 3 === 0
+                                                        ? 'bg-[#8B5E3C] border-[#8B5E3C]'
+                                                        : index % 3 === 1
+                                                            ? 'bg-[#8FAF5B] border-[#8FAF5B]'
+                                                            : 'bg-[#424242] border-[#424242]'
+                                                }`}
+                                            >
+                                                <Text className="text-white font-satoshi font-bold text-[12px]">{niche}</Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                ) : null}
                             </View>
-                            <Text className="text-[#4CAF50] font-satoshi font-bold text-[14px]">Create A Chef Account</Text>
-                        </TouchableOpacity>
+                        ) : (
+                            <TouchableOpacity
+                                onPress={() => navigation.navigate('ChefSignup')}
+                                className="mt-6 bg-[#4CAF50]/10 border border-[#4CAF50]/30 py-3 px-4 rounded-xl flex-row items-center self-start"
+                            >
+                                <View className="w-8 h-8 rounded-full bg-[#4CAF50] items-center justify-center mr-3">
+                                    <Ionicons name="restaurant" size={16} color="white" />
+                                </View>
+                                <Text className="text-[#4CAF50] font-satoshi font-bold text-[14px]">Create A Chef Account</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
 
-                    {MENU_SECTIONS.map((section) => (
+                    {menuSections.map((section) => (
                         <View key={section.title} className="px-6 mb-8">
                             <Text className="text-[#9E9E9E] font-satoshi font-bold text-[14px] mb-4">{section.title}</Text>
                             <View className="bg-white">
@@ -247,18 +340,23 @@ export const ProfileScreen = ({ navigation }: any) => {
                                     <TouchableOpacity
                                         key={item.title}
                                         onPress={() => {
-                                            const routeMap: { [key: string]: string } = {
-                                                'Profile Details': 'ProfileDetails',
-                                                'Referrals': 'Referrals',
-                                                'Gift Cards': 'GiftCards',
-                                                "What's New": 'WhatsNew',
-                                                'FAQs': 'Faqs',
-                                                'Support': 'Support',
-                                                'Legal': 'Legal',
+                                            const routeMap: {
+                                                [key: string]: { name: string; params?: Record<string, any> };
+                                            } = {
+                                                'Profile Details': { name: 'ProfileDetails' },
+                                                'Saved Products': { name: 'SavedProducts' },
+                                                'Referrals': { name: 'Referrals' },
+                                                'Gift Cards': { name: 'GiftCards' },
+                                                'Recipes': { name: 'ManageVideos' },
+                                                'Add New Recipe': { name: 'UploadVideo', params: { resetDraft: true } },
+                                                "What's New": { name: 'WhatsNew' },
+                                                'FAQs': { name: 'Faqs' },
+                                                'Support': { name: 'Support' },
+                                                'Legal': { name: 'Legal' },
                                             };
-                                            const routeName = routeMap[item.title];
-                                            if (routeName) {
-                                                navigation.navigate(routeName);
+                                            const route = routeMap[item.title];
+                                            if (route) {
+                                                navigation.navigate(route.name, route.params);
                                             }
                                         }}
                                         className={`flex-row items-center py-4 border-b border-gray-100 ${iIndex === section.items.length - 1 ? 'border-b-0' : ''}`}

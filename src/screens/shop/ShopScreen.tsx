@@ -6,6 +6,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { CategoryItem, foodService, FoodItem } from '../../utils/foodService';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
+import { useCartActions } from '../../hooks/useCartActions';
+import { CartQuantityControl } from '../../components/CartQuantityControl';
 
 const getCategoryId = (product: FoodItem) => product.category_id || String(product.category?.id ?? '');
 
@@ -14,6 +16,7 @@ export const ShopScreen = ({ navigation }: any) => {
     const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const debouncedSearch = useDebouncedValue(searchQuery.trim(), 350);
+    const { getProductQuantity, incrementProduct, decrementProduct, isProductPending } = useCartActions();
 
     const { data: categoriesResponse, isLoading: isCategoriesLoading } = useQuery({
         queryKey: ['shop-categories'],
@@ -69,10 +72,14 @@ export const ShopScreen = ({ navigation }: any) => {
                 <Text className="text-[13px] font-satoshi font-bold text-[#424242] flex-1" numberOfLines={1}>{item.name}</Text>
                 <Text className="text-[14px] font-satoshi font-bold text-[#424242]">~₦{item.price?.toLocaleString() || '0'}</Text>
             </View>
-            <TouchableOpacity className="bg-[#4CAF50] py-2.5 rounded-xl flex-row items-center justify-center">
-                <Text className="text-white font-satoshi font-bold text-xs mr-2">Add to Cart</Text>
-                <ShoppingCart size={14} color="white" />
-            </TouchableOpacity>
+            <CartQuantityControl
+                quantity={getProductQuantity(item.id)}
+                onAdd={() => incrementProduct(item.id)}
+                onIncrement={() => incrementProduct(item.id)}
+                onDecrement={() => decrementProduct(item.id)}
+                loading={isProductPending(item.id)}
+                compact
+            />
         </TouchableOpacity>
     );
 

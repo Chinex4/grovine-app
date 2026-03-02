@@ -38,7 +38,7 @@ export const FruitMealRecipesScreen = ({ navigation }: any) => {
                                 <Text className="text-[16px] font-satoshi font-bold text-[#424242]">~₦{recipe.price}</Text>
                             </View>
                             <TouchableOpacity
-                                onPress={() => navigation.navigate('RecipeDetail')}
+                                onPress={() => navigation.navigate('Main', { screen: 'Recipes' })}
                                 className="bg-[#4CAF50] h-12 rounded-xl flex-row items-center justify-center"
                             >
                                 <Text className="text-white font-satoshi font-bold text-[14px] mr-2">Watch Recipe</Text>

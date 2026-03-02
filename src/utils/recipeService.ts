@@ -1,12 +1,25 @@
 import api from './api';
 
+export interface RecipeProduct {
+    id: string;
+    name: string;
+    image_url?: string;
+    price?: string | number;
+    discount?: string | number;
+    final_price?: string | number;
+    stock?: number;
+    is_active?: boolean;
+}
+
 export interface RecipeIngredient {
     id: string;
     quantity: string;
+    cart_quantity?: number;
     name?: string;
     product_id?: string;
     item_text?: string;
     is_optional?: boolean;
+    product?: RecipeProduct | null;
 }
 
 export interface RecipeInstruction {
@@ -28,9 +41,13 @@ export interface Recipe {
     duration_seconds?: number;
     servings?: number;
     is_quick_recipe?: boolean;
+    is_recommended?: boolean;
     rating: number;
     likes_count: number;
     dislikes_count: number;
+    views_count?: number;
+    bookmarks_count?: number;
+    ingredients_count?: number;
     media: {
         video_url?: string;
         cover_image_url?: string;
@@ -47,6 +64,8 @@ export interface ListRecipesParams {
     per_page?: number;
     q?: string;
     status?: string;
+    chef_username?: string;
+    limit?: number;
 }
 
 export interface ListRecipesResponse {
@@ -59,6 +78,12 @@ export interface ListRecipesResponse {
     };
 }
 
+export interface RecipeDetailResponse {
+    data: Recipe;
+    related_recipes: Recipe[];
+    relatedRecipes: Recipe[];
+}
+
 const extractArray = <T = any>(payload: any): T[] => {
     if (Array.isArray(payload)) return payload;
     if (Array.isArray(payload?.data)) return payload.data;
@@ -67,6 +92,11 @@ const extractArray = <T = any>(payload: any): T[] => {
 };
 
 const extractMeta = (payload: any) => payload?.meta || payload?.data?.meta || {};
+
+const toNumber = (value: unknown, fallback = 0) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : fallback;
+};
 
 const normalizeMediaUrl = (url: unknown) => {
     if (!url || typeof url !== 'string') return '';
@@ -88,15 +118,18 @@ const normalizeMediaUrl = (url: unknown) => {
 
 const normalizeInstructions = (instructions: any): RecipeInstruction[] => {
     if (Array.isArray(instructions)) {
-        return instructions.map((instruction: any, index) => ({
-            title: instruction?.title || `Step ${index + 1}`,
-            content: instruction?.content || instruction?.text || '',
-        }));
+        return instructions
+            .map((instruction: any, index) => ({
+                title: instruction?.title || `Step ${index + 1}`,
+                content: String(instruction?.content || instruction?.text || '').trim(),
+            }))
+            .filter((instruction: RecipeInstruction) => instruction.content.length > 0);
     }
 
     if (typeof instructions === 'string' && instructions.trim()) {
         return instructions
             .split('\n')
+            .map((line: string) => line.trim())
             .filter(Boolean)
             .map((line: string, index: number) => ({
                 title: `Step ${index + 1}`,
@@ -109,40 +142,73 @@ const normalizeInstructions = (instructions: any): RecipeInstruction[] => {
 
 const normalizeIngredients = (ingredients: any): RecipeIngredient[] => {
     if (!Array.isArray(ingredients)) return [];
-    return ingredients.map((ingredient: any) => ({
-        id: String(ingredient?.id ?? ingredient?.product_id ?? ingredient?.item_text ?? ''),
-        quantity: String(ingredient?.quantity ?? ingredient?.cart_quantity ?? ''),
-        name: ingredient?.name ?? ingredient?.item_text ?? ingredient?.product?.name ?? '',
-        product_id: ingredient?.product_id,
-        item_text: ingredient?.item_text ?? ingredient?.name ?? ingredient?.product?.name,
-        is_optional: Boolean(ingredient?.is_optional),
-    }));
+
+    return ingredients.map((ingredient: any) => {
+        const product = ingredient?.product
+            ? {
+                id: String(ingredient.product.id ?? ''),
+                name: String(ingredient.product.name ?? ''),
+                image_url: normalizeMediaUrl(ingredient.product.image_url),
+                price: ingredient.product.price,
+                discount: ingredient.product.discount,
+                final_price: ingredient.product.final_price,
+                stock: toNumber(ingredient.product.stock, 0),
+                is_active: Boolean(ingredient.product.is_active),
+            }
+            : null;
+
+        const cartQuantity = toNumber(ingredient?.cart_quantity, 1);
+        const itemText = String(ingredient?.item_text ?? ingredient?.name ?? product?.name ?? '').trim();
+        const name = String(ingredient?.name ?? ingredient?.item_text ?? product?.name ?? '').trim();
+
+        return {
+            id: String(ingredient?.id ?? ingredient?.product_id ?? ingredient?.item_text ?? ''),
+            quantity: String(cartQuantity),
+            cart_quantity: cartQuantity,
+            name,
+            product_id: ingredient?.product_id ? String(ingredient.product_id) : product?.id,
+            item_text: itemText,
+            is_optional: Boolean(ingredient?.is_optional),
+            product,
+        };
+    });
 };
 
 const normalizeRecipe = (recipe: any): Recipe => {
     const media = recipe?.media || {};
     const chef = recipe?.chef || recipe?.chef_profile || {};
+
     const coverImageUrl = normalizeMediaUrl(media?.cover_image_url ?? media?.cover_image?.url ?? recipe?.cover_image_url);
     const videoUrl = normalizeMediaUrl(media?.video_url ?? media?.video?.url ?? recipe?.video_url);
+    const chefAvatar = normalizeMediaUrl(
+        recipe?.chef_avatar ?? chef?.profile_picture?.url ?? chef?.profile_picture
+    );
+
+    const estimatedCost = recipe?.estimated_cost ?? recipe?.price ?? recipe?.final_price ?? 0;
+    const description = String(recipe?.description ?? recipe?.short_description ?? '').trim();
 
     return {
         ...recipe,
         id: String(recipe?.id ?? ''),
-        title: recipe?.title ?? '',
-        description: recipe?.description ?? recipe?.short_description ?? '',
-        short_description: recipe?.short_description ?? recipe?.description ?? '',
+        title: String(recipe?.title ?? ''),
+        description,
+        short_description: String(recipe?.short_description ?? description ?? '').trim(),
         chef_id: String(recipe?.chef_id ?? chef?.id ?? ''),
         chef_name: recipe?.chef_name ?? chef?.chef_name ?? chef?.name,
-        chef_avatar: normalizeMediaUrl(recipe?.chef_avatar ?? chef?.profile_picture?.url),
-        price: recipe?.price ?? recipe?.estimated_cost ?? 0,
+        chef_avatar: chefAvatar,
+        price: estimatedCost,
         status: recipe?.status,
-        estimated_cost: recipe?.estimated_cost ?? recipe?.price ?? 0,
-        duration_seconds: Number(recipe?.duration_seconds ?? 0) || undefined,
-        servings: Number(recipe?.servings ?? 0) || undefined,
+        estimated_cost: estimatedCost,
+        duration_seconds: toNumber(recipe?.duration_seconds, 0) || undefined,
+        servings: toNumber(recipe?.servings, 0) || undefined,
         is_quick_recipe: Boolean(recipe?.is_quick_recipe),
-        rating: Number(recipe?.rating ?? 0),
-        likes_count: Number(recipe?.likes_count ?? 0),
-        dislikes_count: Number(recipe?.dislikes_count ?? 0),
+        is_recommended: Boolean(recipe?.is_recommended),
+        rating: toNumber(recipe?.rating, 0),
+        likes_count: toNumber(recipe?.likes_count ?? recipe?.bookmarks_count, 0),
+        dislikes_count: toNumber(recipe?.dislikes_count, 0),
+        views_count: toNumber(recipe?.views_count, 0),
+        bookmarks_count: toNumber(recipe?.bookmarks_count, 0),
+        ingredients_count: toNumber(recipe?.ingredients_count, 0),
         media: {
             video_url: videoUrl || undefined,
             cover_image_url: coverImageUrl || undefined,
@@ -155,7 +221,15 @@ const normalizeRecipe = (recipe: any): Recipe => {
 export const recipeService = {
     listRecipes: async (params: ListRecipesParams = {}): Promise<ListRecipesResponse> => {
         try {
-            const response = await api.get('/recipes', { params });
+            const limitFromPerPage = params.limit ?? params.per_page;
+            const response = await api.get('/recipes', {
+                params: {
+                    q: params.q,
+                    chef_username: params.chef_username,
+                    limit: limitFromPerPage,
+                },
+            });
+
             return {
                 data: extractArray(response.data).map(normalizeRecipe),
                 meta: extractMeta(response.data),
@@ -192,11 +266,18 @@ export const recipeService = {
         }
     },
 
-    getRecipeById: async (id: string): Promise<{ data: Recipe }> => {
+    getRecipeById: async (id: string): Promise<RecipeDetailResponse> => {
         try {
             const response = await api.get(`/recipes/${id}`);
-            const payload = response.data?.data || response.data;
-            return { data: normalizeRecipe(payload) };
+            const payload = response.data?.data || response.data || {};
+            const recipePayload = payload?.recipe || payload;
+            const relatedRecipes = extractArray(payload?.related_recipes).map(normalizeRecipe);
+
+            return {
+                data: normalizeRecipe(recipePayload),
+                related_recipes: relatedRecipes,
+                relatedRecipes,
+            };
         } catch (error: any) {
             console.error(`Get Recipe (${id}) Error:`, error.response?.data || error.message);
             throw error;
@@ -306,7 +387,7 @@ export const recipeService = {
         recipeId: string,
         ingredientIds: string[],
         quantityMultiplier = 1
-    ): Promise<{ code?: string; message?: string }> => {
+    ): Promise<{ code?: string; message?: string; data?: any }> => {
         try {
             const response = await api.post(`/recipes/${recipeId}/ingredients/add-to-cart`, {
                 ingredient_ids: ingredientIds,

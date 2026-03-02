@@ -2,7 +2,7 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Home, Search, ShoppingBag, User } from 'lucide-react-native';
+import { Home, Search, ShoppingBag, ShoppingBagIcon, User, VideoIcon } from 'lucide-react-native';
 import { flushPendingNavigation, navigationRef } from './navigationRef';
 import { AppSplashScreen } from '../screens/splash/AppSplashScreen';
 
@@ -27,8 +27,10 @@ import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { RecipesScreen } from '../screens/recipes/RecipesScreen';
 import { SavedRecipesScreen } from '../screens/recipes/SavedRecipesScreen';
 import { RecipeDetailScreen } from '../screens/recipes/RecipeDetailScreen';
+import { RecipeStoryScreen } from '../screens/recipes/RecipeStoryScreen';
 import { RecipeOverviewScreen } from '../screens/recipes/RecipeOverviewScreen';
 import { RecipeIngredientsScreen } from '../screens/recipes/RecipeIngredientsScreen';
+import { RelatedRecipesScreen } from '../screens/recipes/RelatedRecipesScreen';
 import { FruitMealRecipesScreen } from '../screens/recipes/FruitMealRecipesScreen';
 import { SearchScreen } from '../screens/search/SearchScreen';
 import { SearchResultsScreen } from '../screens/search/SearchResultsScreen';
@@ -80,14 +82,14 @@ const MainTabNavigator = () => {
                 name="Shop"
                 component={ShopScreen}
                 options={{
-                    tabBarIcon: ({ color, size }) => <Search size={size} color={color} />,
+                    tabBarIcon: ({ color, size }) => <ShoppingBagIcon size={size} color={color} />,
                 }}
             />
             <Tab.Screen
                 name="Recipes"
                 component={RecipesScreen}
                 options={{
-                    tabBarIcon: ({ color, size }) => <ShoppingBag size={size} color={color} />,
+                    tabBarIcon: ({ color, size }) => <VideoIcon size={size} color={color} />,
                 }}
             />
             <Tab.Screen
@@ -141,9 +143,11 @@ export const RootNavigator = () => {
                 <Stack.Screen name="Legal" component={LegalScreen} />
                 <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen} />
                 <Stack.Screen name="SavedRecipes" component={SavedRecipesScreen} />
+                <Stack.Screen name="RecipeStory" component={RecipeStoryScreen} />
                 <Stack.Screen name="RecipeDetail" component={RecipeDetailScreen} />
                 <Stack.Screen name="RecipeOverview" component={RecipeOverviewScreen} />
                 <Stack.Screen name="RecipeIngredients" component={RecipeIngredientsScreen} />
+                <Stack.Screen name="RelatedRecipes" component={RelatedRecipesScreen} />
                 <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
                 <Stack.Screen name="SavedProducts" component={SavedProductsScreen} />
                 <Stack.Screen name="SearchHistory" component={SearchScreen} />

@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Grovine",
-    "slug": "grovine",
+    "slug": "grovinee",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/playstore-icon.png",
@@ -13,7 +13,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.grovine.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -22,7 +26,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.abedc4.grovine"
+      "package": "com.grovine.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -34,7 +38,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "30083e32-0584-47c7-824b-d045defd0888"
+        "projectId": "d9d3b7ae-65d2-4f92-b0cf-4b831750f287"
       }
     }
   }

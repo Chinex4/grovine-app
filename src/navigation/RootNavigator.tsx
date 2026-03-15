@@ -57,6 +57,7 @@ import { cartService } from '../utils/cartService';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const TAB_ROUTE_NAMES = ['Home', 'Shop', 'Recipes', 'Orders', 'Profile'];
+const CART_FAB_HIDDEN_ROUTES = ['AppSplash', 'Onboarding', 'Login', 'Signup', 'VerifyOtp', 'Preferences'];
 
 const getActiveRouteName = (state: any): string => {
     if (!state || !Array.isArray(state.routes) || state.routes.length === 0) {
@@ -133,9 +134,12 @@ export const RootNavigator = () => {
     const [activeRouteName, setActiveRouteName] = useState<string>('');
 
     const isTabRoute = TAB_ROUTE_NAMES.includes(activeRouteName);
-    const shouldShowCartFab = activeRouteName.length > 0 && activeRouteName !== 'Orders' && activeRouteName !== 'AppSplash';
+    const shouldShowCartFab =
+        activeRouteName.length > 0 &&
+        activeRouteName !== 'Orders' &&
+        !CART_FAB_HIDDEN_ROUTES.includes(activeRouteName);
     const fabBottom = isTabRoute ? 106 : 28;
-    const shouldFetchCartBadge = shouldShowCartFab && !['Onboarding', 'Login', 'Signup', 'VerifyOtp'].includes(activeRouteName);
+    const shouldFetchCartBadge = shouldShowCartFab;
 
     const fabStyle = useMemo(() => ({ bottom: fabBottom }), [fabBottom]);
 

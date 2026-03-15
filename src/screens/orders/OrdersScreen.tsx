@@ -16,6 +16,8 @@ import Toast from 'react-native-toast-message';
 import { WebView } from 'react-native-webview';
 import { orderService, BroadStatus, OrderStatus, Order } from '../../utils/orderService';
 import { cartService, CartItem } from '../../utils/cartService';
+import { useCartActions } from '../../hooks/useCartActions';
+import { createEmptyCartResponse, getProductIdFromCartItem } from '../../utils/cartQueryUtils';
 
 const TABS = ['My Cart', 'Ongoing', 'Completed', 'Cancelled'];
 const CALLBACK_URL_PREFIX = 'https://grovine.ng/payment/callback';
@@ -67,18 +69,15 @@ export const OrdersScreen = ({ navigation }: any) => {
     const [verifyMessage, setVerifyMessage] = useState('Verifying payment...');
 
     const queryClient = useQueryClient();
+    const {
+        cart,
+        cartQuery,
+        items: cartItems,
+        setProductQuantity,
+        hasPendingCartSync,
+    } = useCartActions();
 
     const mappedStatus = TAB_MAPPING[activeTab];
-
-    const {
-        data: cartResponse,
-        isLoading: isCartLoading,
-        refetch: refetchCart,
-    } = useQuery({
-        queryKey: ['cart'],
-        queryFn: cartService.getCart,
-        enabled: activeTab === 'My Cart',
-    });
 
     const {
         data: ordersResponse,
@@ -99,43 +98,22 @@ export const OrdersScreen = ({ navigation }: any) => {
         mutationFn: (reference: string) => cartService.verifyPaystackPayment(reference),
     });
 
-    const updateCartMutation = useMutation({
-        mutationFn: ({ cartItemId, quantity }: { cartItemId: string; quantity: number }) =>
-            cartService.updateCart(cartItemId, quantity),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ['cart'] });
-        },
-        onError: (error: any) => {
-            Toast.show({
-                type: 'error',
-                text1: 'Could not update cart',
-                text2: error.response?.data?.message || error.message || 'Please try again.',
-            });
-        },
-    });
-
-    const removeCartItemMutation = useMutation({
-        mutationFn: (cartItemId: string) => cartService.removeCartItem(cartItemId),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ['cart'] });
-            Toast.show({ type: 'success', text1: 'Item removed' });
-        },
-        onError: (error: any) => {
-            Toast.show({
-                type: 'error',
-                text1: 'Could not remove item',
-                text2: error.response?.data?.message || error.message || 'Please try again.',
-            });
-        },
-    });
-
     const clearCartMutation = useMutation({
         mutationFn: cartService.clearCart,
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: ['cart'] });
+            const previousCart = queryClient.getQueryData(['cart']);
+            queryClient.setQueryData(['cart'], createEmptyCartResponse());
+            return { previousCart };
+        },
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['cart'] });
             Toast.show({ type: 'success', text1: 'Cart cleared' });
         },
-        onError: (error: any) => {
+        onError: (error: any, _variables, context) => {
+            if (context?.previousCart) {
+                queryClient.setQueryData(['cart'], context.previousCart);
+            }
             Toast.show({
                 type: 'error',
                 text1: 'Could not clear cart',
@@ -145,21 +123,18 @@ export const OrdersScreen = ({ navigation }: any) => {
     });
 
     const orders = ordersResponse?.data || [];
-    const cart = cartResponse?.data;
-    const cartItems = cart?.items || [];
     const cartTotal = Number(cart?.total || 0);
     const cartSubtotal = Number(cart?.subtotal || 0);
     const totalDiscount = Number(cart?.total_discount || 0);
     const itemCount = Number(cart?.item_count || 0);
 
-    const isCartActionPending =
-        updateCartMutation.isPending || removeCartItemMutation.isPending || clearCartMutation.isPending;
+    const isCartActionPending = clearCartMutation.isPending || hasPendingCartSync;
 
-    const isLoading = activeTab === 'My Cart' ? isCartLoading : isOrdersLoading;
+    const isLoading = activeTab === 'My Cart' ? cartQuery.isLoading : isOrdersLoading;
 
     const handleRefresh = () => {
         if (activeTab === 'My Cart') {
-            refetchCart();
+            cartQuery.refetch();
             return;
         }
         refetchOrders();
@@ -372,8 +347,7 @@ export const OrdersScreen = ({ navigation }: any) => {
                             {item.product?.name || item.food?.name || 'Product'}
                         </Text>
                         <TouchableOpacity
-                            onPress={() => removeCartItemMutation.mutate(item.id)}
-                            disabled={isCartActionPending}
+                            onPress={() => setProductQuantity(getProductIdFromCartItem(item), 0)}
                             className="bg-red-50 p-1 rounded-md ml-2"
                         >
                             <Ionicons name="trash-outline" size={14} color="#F44336" />
@@ -388,24 +362,19 @@ export const OrdersScreen = ({ navigation }: any) => {
                         </Text>
                         <View className="flex-row items-center bg-gray-100 rounded-lg px-2 py-1">
                             <TouchableOpacity
-                                disabled={isCartActionPending}
                                 onPress={() =>
-                                    updateCartMutation.mutate({
-                                        cartItemId: item.id,
-                                        quantity: Math.max(0, item.quantity - 1),
-                                    })
+                                    setProductQuantity(
+                                        getProductIdFromCartItem(item),
+                                        Math.max(0, item.quantity - 1)
+                                    )
                                 }
                             >
                                 <Ionicons name="remove" size={16} color="#424242" />
                             </TouchableOpacity>
                             <Text className="mx-3 font-satoshi font-bold text-[14px]">{item.quantity}</Text>
                             <TouchableOpacity
-                                disabled={isCartActionPending}
                                 onPress={() =>
-                                    updateCartMutation.mutate({
-                                        cartItemId: item.id,
-                                        quantity: item.quantity + 1,
-                                    })
+                                    setProductQuantity(getProductIdFromCartItem(item), item.quantity + 1)
                                 }
                             >
                                 <Ionicons name="add" size={16} color="#424242" />

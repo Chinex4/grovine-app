@@ -13,11 +13,13 @@ import {
 } from 'react-native';
 import { ScreenWrapper } from '../../components/ScreenWrapper';
 import { Ionicons } from '@expo/vector-icons';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { cartService, CheckoutParams } from '../../utils/cartService';
 import Toast from 'react-native-toast-message';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { WebView } from 'react-native-webview';
+import { useCartActions } from '../../hooks/useCartActions';
+import { getProductIdFromCartItem } from '../../utils/cartQueryUtils';
 
 const CALLBACK_URL_PREFIX = 'https://grovine.ng/payment/callback';
 
@@ -62,26 +64,7 @@ export const CheckoutScreen = ({ navigation }: any) => {
     const [verifyMessage, setVerifyMessage] = useState('Verifying payment...');
 
     const queryClient = useQueryClient();
-
-    const { data: cartResponse, isLoading: isCartLoading } = useQuery({
-        queryKey: ['cart'],
-        queryFn: cartService.getCart,
-    });
-
-    const updateCartMutation = useMutation({
-        mutationFn: ({ id, quantity }: { id: string; quantity: number }) =>
-            cartService.updateCart(id, quantity),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ['cart'] });
-        },
-        onError: (error: any) => {
-            Toast.show({
-                type: 'error',
-                text1: 'Update failed',
-                text2: error.response?.data?.message || 'Could not update quantity',
-            });
-        },
-    });
+    const { cart, items, cartQuery, setProductQuantity, hasPendingCartSync } = useCartActions();
 
     const checkoutMutation = useMutation({
         mutationFn: (params: CheckoutParams) => cartService.checkout(params),
@@ -91,14 +74,11 @@ export const CheckoutScreen = ({ navigation }: any) => {
         mutationFn: (reference: string) => cartService.verifyPaystackPayment(reference),
     });
 
-    const cart = cartResponse?.data;
-    const items = cart?.items || [];
     const totalPrice = cart?.total || 0;
     const subTotal = cart?.subtotal || totalPrice;
     const totalDiscount = cart?.total_discount || 0;
 
-    const isBusy =
-        checkoutMutation.isPending || verifyPaymentMutation.isPending || updateCartMutation.isPending;
+    const isBusy = checkoutMutation.isPending || verifyPaymentMutation.isPending || hasPendingCartSync;
 
     const canSubmit = items.length > 0 && !isBusy;
 
@@ -261,7 +241,7 @@ export const CheckoutScreen = ({ navigation }: any) => {
         }
     };
 
-    if (isCartLoading) {
+    if (cartQuery.isLoading) {
         return (
             <ScreenWrapper bg="#F7F7F7">
                 <View className="flex-1 items-center justify-center">
@@ -325,9 +305,8 @@ export const CheckoutScreen = ({ navigation }: any) => {
                                                     {item.food?.name || item.product?.name || 'Food Item'}
                                                 </Text>
                                                 <TouchableOpacity
-                                                    onPress={() => updateCartMutation.mutate({ id: item.id, quantity: 0 })}
+                                                    onPress={() => setProductQuantity(getProductIdFromCartItem(item), 0)}
                                                     className="bg-red-50 p-1 rounded-md ml-2"
-                                                    disabled={isBusy}
                                                 >
                                                     <Ionicons name="trash-outline" size={14} color="#F44336" />
                                                 </TouchableOpacity>
@@ -344,15 +323,23 @@ export const CheckoutScreen = ({ navigation }: any) => {
                                                 </View>
                                                 <View className="flex-row items-center bg-gray-100 rounded-lg px-2 py-1">
                                                     <TouchableOpacity
-                                                        disabled={isBusy}
-                                                        onPress={() => updateCartMutation.mutate({ id: item.id, quantity: Math.max(0, item.quantity - 1) })}
+                                                        onPress={() =>
+                                                            setProductQuantity(
+                                                                getProductIdFromCartItem(item),
+                                                                Math.max(0, item.quantity - 1)
+                                                            )
+                                                        }
                                                     >
                                                         <Ionicons name="remove" size={16} color="#424242" />
                                                     </TouchableOpacity>
                                                     <Text className="mx-3 font-satoshi font-bold text-[14px]">{item.quantity}</Text>
                                                     <TouchableOpacity
-                                                        disabled={isBusy}
-                                                        onPress={() => updateCartMutation.mutate({ id: item.id, quantity: item.quantity + 1 })}
+                                                        onPress={() =>
+                                                            setProductQuantity(
+                                                                getProductIdFromCartItem(item),
+                                                                item.quantity + 1
+                                                            )
+                                                        }
                                                     >
                                                         <Ionicons name="add" size={16} color="#424242" />
                                                     </TouchableOpacity>

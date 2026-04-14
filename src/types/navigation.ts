@@ -1,3 +1,5 @@
+import type { OtpChallengeData } from '../utils/authService';
+
 export type RootStackParamList = {
     Onboarding: undefined;
     Auth: undefined;
@@ -7,7 +9,11 @@ export type RootStackParamList = {
 export type AuthStackParamList = {
     Login: undefined;
     Signup: undefined;
-    VerifyOtp: { email: string; type: 'signup' | 'login' };
+    VerifyOtp: {
+        email: string;
+        type: 'signup' | 'login';
+        challenge?: OtpChallengeData;
+    };
     Preferences: undefined;
 };
 

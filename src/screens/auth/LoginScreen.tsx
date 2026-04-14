@@ -8,6 +8,7 @@ import { authService } from '../../utils/authService';
 import Toast from 'react-native-toast-message';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
+import { isPlayStoreReviewBuild, PLAY_STORE_REVIEW_CONFIG } from '../../constants/playStoreReview';
 
 const LoginSchema = Yup.object().shape({
     email: Yup.string()
@@ -18,32 +19,40 @@ const LoginSchema = Yup.object().shape({
 export const LoginScreen = ({ navigation }: any) => {
     const [loading, setLoading] = useState(false);
 
+    const requestLoginCode = async (email: string) => {
+        setLoading(true);
+        try {
+            const response = await authService.signIn(email);
+            const challenge = response.data;
+            const usesTestOtp = challenge?.uses_test_otp || challenge?.otp_delivery_channel === 'fixed_test_code';
+
+            Toast.show({
+                type: 'success',
+                text1: 'Verification Sent',
+                text2: usesTestOtp
+                    ? 'Use the Play Store reviewer code to continue.'
+                    : 'Please check your email for the code',
+            });
+
+            navigation.navigate('VerifyOtp', { email, type: 'login', challenge });
+        } catch (error: any) {
+            console.log('LoginScreen Error:', error);
+            Toast.show({
+                type: 'error',
+                text1: 'Sign-in Failed',
+                text2: error.message === 'Network Error'
+                    ? 'Network error: Please check your internet connection'
+                    : error.response?.data?.message || error.message || 'Could not connect to server'
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const formik = useFormik({
         initialValues: { email: '' },
         validationSchema: LoginSchema,
-        onSubmit: async (values) => {
-            setLoading(true);
-            try {
-                await authService.signIn(values.email);
-                Toast.show({
-                    type: 'success',
-                    text1: 'Verification Sent',
-                    text2: 'Please check your email for the code'
-                });
-                navigation.navigate('VerifyOtp', { email: values.email, type: 'login' });
-            } catch (error: any) {
-                console.log('LoginScreen Error:', error);
-                Toast.show({
-                    type: 'error',
-                    text1: 'Sign-in Failed',
-                    text2: error.message === 'Network Error'
-                        ? 'Network error: Please check your internet connection'
-                        : error.response?.data?.message || error.message || 'Could not connect to server'
-                });
-            } finally {
-                setLoading(false);
-            }
-        },
+        onSubmit: async (values) => requestLoginCode(values.email),
     });
 
     return (
@@ -73,6 +82,30 @@ export const LoginScreen = ({ navigation }: any) => {
                             keyboardType="email-address"
                             autoCapitalize="none"
                         />
+
+                        {isPlayStoreReviewBuild ? (
+                            <View className="rounded-2xl bg-white px-4 py-4 mt-2">
+                                <Text className="text-[#424242] text-sm font-satoshi font-bold mb-1">
+                                    Play Store review account
+                                </Text>
+                                <Text className="text-[#757575] text-sm font-satoshi leading-[20px]">
+                                    Reviewer email: {PLAY_STORE_REVIEW_CONFIG.reviewerEmail}
+                                </Text>
+                                <TouchableOpacity
+                                    activeOpacity={0.85}
+                                    className="mt-3 self-start rounded-full bg-[#E8F5E9] px-4 py-2"
+                                    onPress={() => {
+                                        formik.setFieldValue('email', PLAY_STORE_REVIEW_CONFIG.reviewerEmail);
+                                        formik.setFieldTouched('email', true, false);
+                                        requestLoginCode(PLAY_STORE_REVIEW_CONFIG.reviewerEmail);
+                                    }}
+                                >
+                                    <Text className="text-[#2E7D32] text-sm font-satoshi font-bold">
+                                        Use Play Store test account
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        ) : null}
                     </View>
 
                     <View className="pb-10 pt-4">

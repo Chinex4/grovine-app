@@ -6,6 +6,13 @@ export interface AuthActionResponse {
     data?: Record<string, any>;
 }
 
+export interface OtpChallengeData {
+    otp_expires_at?: string;
+    otp_length?: number;
+    otp_delivery_channel?: string;
+    uses_test_otp?: boolean;
+}
+
 export interface SignupPayload {
     name: string;
     email: string;
@@ -37,7 +44,7 @@ export const authService = {
         }
     },
 
-    signIn: async (email: string): Promise<AuthActionResponse> => {
+    signIn: async (email: string): Promise<AuthActionResponse & { data?: OtpChallengeData }> => {
         try {
             const response = await api.post('/auth/login', { email });
             return response.data;
@@ -58,7 +65,10 @@ export const authService = {
         }
     },
 
-    resendVerification: async (email: string, type: 'login' | 'signup' = 'signup'): Promise<AuthActionResponse> => {
+    resendVerification: async (
+        email: string,
+        type: 'login' | 'signup' = 'signup'
+    ): Promise<AuthActionResponse & { data?: OtpChallengeData }> => {
         try {
             const response = await api.post('/auth/resend-otp', { email, purpose: type });
             return response.data;

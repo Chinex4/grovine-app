@@ -8,6 +8,18 @@
       "developmentClient": true,
       "distribution": "internal"
     },
+    "playstoreReview": {
+      "distribution": "store",
+      "android": {
+        "gradleCommand": ":app:bundleRelease"
+      },
+      "env": {
+        "OTP_TEST_LOGIN_ENABLED": "true",
+        "OTP_TEST_LOGIN_EMAIL": "playstore.reviewer@grovine.ng",
+        "OTP_TEST_LOGIN_NAME": "Play Store Reviewer",
+        "OTP_TEST_LOGIN_CODE": "55555"
+      }
+    },
     "preview": {
       "distribution": "internal",
       "android": { "gradleCommand": ":app:bundleRelease" }
